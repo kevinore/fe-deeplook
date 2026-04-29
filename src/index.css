@@ -48,6 +48,18 @@ body {
 }
 .btn-ghost:hover { background: var(--primary); color: white; transform: scale(1.02); }
 
+.btn-ghost-danger {
+  background: transparent;
+  color: #ef4444;
+  border: 1.5px solid #ef4444;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms, color 200ms, transform 200ms;
+}
+.btn-ghost-danger:hover { background: #ef4444; color: white; transform: scale(1.02); }
+
 *:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 @keyframes shimmer {

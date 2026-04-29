@@ -13,6 +13,8 @@ createRoot(document.getElementById('root')).render(
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
         localization={esES}
         afterSignOutUrl="/"
+        signUpFallbackRedirectUrl="/app/inicio"
+        signInFallbackRedirectUrl="/app/inicio"
       >
         <App />
       </ClerkProvider>

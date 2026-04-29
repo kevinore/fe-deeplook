@@ -3,6 +3,10 @@ import { useUser, useClerk, UserButton } from '@clerk/react';
 import { Icon, DeepLookLogo } from './Icons';
 import { useApiClient } from '../lib/api';
 import OnboardingModal from './OnboardingModal';
+import PlanSelectionModal from './PlanSelectionModal';
+import RenewalBanner from './RenewalBanner';
+import { NotificationProvider } from './NotificationContext';
+import NotificationBell from './NotificationBell';
 import DashHome from './DashHome';
 import DashConnect from './DashConnect';
 import DashUpload from './DashUpload';
@@ -41,7 +45,7 @@ const toTitleCase = (str) => str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase(
 
 // ── Floating WhatsApp support button ─────────────────────────────────────────
 
-const DASH_WA_NUMBER  = '573178881502';
+const DASH_WA_NUMBER  = '573142601563';
 const DASH_WA_MESSAGE = encodeURIComponent('Hola, soy usuario de DeepLook y tengo una duda 🙋');
 
 const WA_SVG = (
@@ -187,7 +191,7 @@ const Sidebar = ({ page, onNavigate, onLanding, open, onClose }) => (
   </aside>
 );
 
-const TopBar = ({ page, onMenuOpen, client }) => (
+const TopBar = ({ page, onMenuOpen, client, onNavigate }) => (
   <header className="dash-topbar"
     style={{ position: 'fixed', top: 0, height: 68, background: 'white', borderBottom: '1px solid #ededed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', zIndex: 40 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -199,11 +203,8 @@ const TopBar = ({ page, onMenuOpen, client }) => (
       </button>
       <div style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', letterSpacing: '-0.01em' }}>{PAGE_TITLES[page] || 'Dashboard'}</div>
     </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ position: 'relative' }}>
-        <Icon name="bell" size={20} color="#0e0749" style={{ cursor: 'pointer', opacity: 0.7 }} />
-        <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, background: '#4f46e5', borderRadius: '50%', border: '1.5px solid white' }} />
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <NotificationBell onNavigate={onNavigate} />
       <div style={{ background: '#4f46e5', color: 'white', fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 999 }}>
         {PLAN_LABELS[client?.plan] ?? 'Plan Gratis'}
       </div>
@@ -232,6 +233,8 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
   const [latestResults, setLatestResults] = useState(undefined);
   // null = not yet loaded, object = quota data
   const [quota, setQuota] = useState(null);
+  // true = show plan selection after onboarding
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
   const refreshQuota = () => {
     api.get('/api/v1/billing/quota')
@@ -275,32 +278,54 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
   const renderPage = () => {
     if (client === null) return <LoadingMain />;
     switch (page) {
-      case 'dashboard': return <DashHome onNavigate={onNavigate} connection={connection} jobs={jobs} latestResults={latestResults} quota={quota} />;
+      case 'dashboard': return <DashHome onNavigate={onNavigate} connection={connection} jobs={jobs} latestResults={latestResults} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
       case 'connect':   return <DashConnect client={client || null} connection={connection} onConnectionUpdate={setConnection} onNavigate={onNavigate} quota={quota} onQuotaRefresh={refreshQuota} />;
-      case 'upload':    return <DashUpload clientId={client ? client.id : null} quota={quota} />;
-      case 'reports':   return <DashReports onNavigate={onNavigate} jobs={jobs} onJobsUpdate={setJobs} />;
-      case 'trends':    return <DashTrends plan={client?.plan} onNavigate={onNavigate} />;
-      case 'settings':  return <DashSettings client={client || null} onClientUpdate={setClient} connection={connection} onConnectionUpdate={setConnection} quota={quota} />;
+      case 'upload':    return <DashUpload clientId={client ? client.id : null} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
+      case 'reports':   return <DashReports onNavigate={onNavigate} jobs={jobs} onJobsUpdate={setJobs} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
+      case 'trends':    return <DashTrends plan={client?.plan} onNavigate={onNavigate} onShowPlanModal={() => setShowPlanModal(true)} />;
+      case 'settings':  return <DashSettings client={client || null} onClientUpdate={setClient} connection={connection} onConnectionUpdate={setConnection} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
       case 'help':      return <DashHelp />;
-      default:          return <DashHome onNavigate={onNavigate} connection={connection} quota={quota} />;
+      default:          return <DashHome onNavigate={onNavigate} connection={connection} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
     }
   };
 
   return (
+    <NotificationProvider onNavigate={onNavigate}>
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f7fc' }}>
-      {/* Onboarding modal blocks the dashboard until the user completes their profile */}
-      {client === false && <OnboardingModal onComplete={setClient} />}
+      {/* Onboarding — blocks dashboard until profile is complete */}
+      {client === false && (
+        <OnboardingModal onComplete={(newClient) => {
+          setClient(newClient);
+          // Right after onboarding, invite free users to pick a plan
+          if (!newClient?.plan || newClient.plan === 'free') {
+            setShowPlanModal(true);
+          }
+        }} />
+      )}
+
+      {/* Plan selection — shown after onboarding for free users, or manually triggered */}
+      {showPlanModal && client && (
+        <PlanSelectionModal
+          onClose={() => setShowPlanModal(false)}
+          onPlanActivated={(updatedClient) => {
+            setClient(updatedClient);
+            setShowPlanModal(false);
+          }}
+        />
+      )}
 
       <div className={`dash-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar page={page} onNavigate={onNavigate} onLanding={onLanding} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="dash-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0 }}>
-        <TopBar page={page} onMenuOpen={() => setSidebarOpen(true)} client={client || null} />
+        <TopBar page={page} onMenuOpen={() => setSidebarOpen(true)} client={client || null} onNavigate={onNavigate} />
+        <RenewalBanner quota={quota} onRenew={() => setShowPlanModal(true)} />
         <main style={{ marginTop: 68, flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {renderPage()}
         </main>
       </div>
       <DashWhatsAppButton />
     </div>
+    </NotificationProvider>
   );
 };
 

@@ -147,16 +147,13 @@ const OnboardingModal = ({ onComplete }) => {
     }}>
       <div style={{
         background: 'white', borderRadius: 20,
-        padding: '36px 40px', width: '100%', maxWidth: 460,
+        padding: '28px 40px 36px', width: '100%', maxWidth: 460,
         boxShadow: '0 24px 80px rgba(14,7,73,0.22)',
         maxHeight: '90vh', overflowY: 'auto',
         animation: 'pageFade 280ms ease',
       }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ display: 'inline-flex', marginBottom: 14 }}>
-            <DeepLookLogo size="md" />
-          </div>
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <h2 style={{ fontSize: 21, fontWeight: 700, color: '#0e0749', marginBottom: 8, letterSpacing: '-0.02em' }}>
             Cuéntanos sobre tu negocio
           </h2>

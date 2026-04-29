@@ -35,9 +35,25 @@ const ProgressSection = ({ job }) => {
   }
 
   if (job.status === 'processing') {
-    const total = job.total_conversations || 1;
+    const total = job.total_conversations ?? 0;
     const done  = job.processed_conversations ?? 0;
-    const pct   = Math.min(Math.round((done / total) * 100), 100);
+    const fetching = total === 0;
+
+    if (fetching) {
+      return (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: '#92400e', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
+            Obteniendo conversaciones de WhatsApp…
+          </div>
+          <div style={{ height: 6, background: '#ededed', borderRadius: 3, overflow: 'hidden' }}>
+            <div className="skeleton" style={{ height: '100%', width: '100%', borderRadius: 3 }} />
+          </div>
+        </div>
+      );
+    }
+
+    const pct = Math.min(Math.round((done / total) * 100), 100);
     return (
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -55,11 +71,9 @@ const ProgressSection = ({ job }) => {
             transition: 'width 700ms ease',
           }} />
         </div>
-        {total > 0 && (
-          <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.4)', marginTop: 5, textAlign: 'right' }}>
-            {total - done} restante{total - done !== 1 ? 's' : ''}
-          </div>
-        )}
+        <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.4)', marginTop: 5, textAlign: 'right' }}>
+          {total - done} restante{total - done !== 1 ? 's' : ''}
+        </div>
       </div>
     );
   }
@@ -128,19 +142,29 @@ const ReportCard = ({ job, onDownload, downloading }) => {
   );
 };
 
-const EmptyState = ({ hasSearch, onNavigate }) => (
+const EmptyState = ({ hasSearch, onNavigate, isFree, onShowPlanModal }) => (
   <div style={{ textAlign: 'center', padding: '80px 0' }}>
     <div style={{ width: 64, height: 64, background: '#f4f3ff', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
       <Icon name="file" size={28} color="#a78bfa" />
     </div>
     {hasSearch
       ? <p style={{ color: 'rgba(14,7,73,0.4)', fontSize: 15 }}>No se encontraron reportes para tu búsqueda.</p>
-      : <>
-          <p style={{ color: 'rgba(14,7,73,0.55)', fontSize: 15, marginBottom: 20 }}>Aún no tienes reportes generados.</p>
-          <button onClick={() => onNavigate?.('connect')} className="btn-primary" style={{ padding: '11px 24px', fontSize: 14 }}>
-            Conectar WhatsApp
-          </button>
-        </>
+      : isFree
+        ? <>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0e0749', marginBottom: 10 }}>Activa un plan para generar tu primer reporte</h3>
+            <p style={{ color: 'rgba(14,7,73,0.55)', fontSize: 14, marginBottom: 24, maxWidth: 360, margin: '0 auto 24px', lineHeight: 1.65 }}>
+              Con el plan Básico obtienes un análisis completo de tus conversaciones de WhatsApp — sentimiento, tiempos de respuesta, ventas perdidas y más.
+            </p>
+            <button onClick={onShowPlanModal} className="btn-primary" style={{ padding: '12px 28px', fontSize: 14, fontWeight: 700 }}>
+              Ver planes y activar →
+            </button>
+          </>
+        : <>
+            <p style={{ color: 'rgba(14,7,73,0.55)', fontSize: 15, marginBottom: 20 }}>Aún no tienes reportes generados.</p>
+            <button onClick={() => onNavigate?.('connect')} className="btn-primary" style={{ padding: '11px 24px', fontSize: 14 }}>
+              Conectar WhatsApp
+            </button>
+          </>
     }
   </div>
 );
@@ -159,7 +183,7 @@ const POLL_INTERVAL_MS = 3000;
 
 // jobs: null = loading (from Dashboard) | [...] = ready
 // onJobsUpdate: Dashboard's setJobs — used to propagate polling updates upward
-const DashReports = ({ onNavigate, jobs, onJobsUpdate }) => {
+const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal }) => {
   const api = useApiClient();
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -220,25 +244,41 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate }) => {
   const totalCompleted = (jobs ?? []).filter(j => j.status === 'completed').length;
   const totalActive    = (jobs ?? []).filter(j => j.status === 'pending' || j.status === 'processing').length;
 
+  const isFree = quota?.plan === 'free';
+
   return (
     <div className="dash-page page-fade">
+      {isFree && (
+        <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', borderRadius: 16, padding: '20px 28px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', boxShadow: '0 6px 24px rgba(79,70,229,0.25)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>🔒</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 2 }}>Activa tu plan para generar reportes</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>Los reportes de WhatsApp están disponibles en todos los planes de pago.</div>
+            </div>
+          </div>
+          <button onClick={onShowPlanModal} style={{ background: 'white', color: '#4f46e5', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            Ver planes →
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: '#0e0749', letterSpacing: '-0.02em', marginBottom: 4 }}>Mis reportes</h1>
-          <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 15, color: 'rgba(14,7,73,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
             {jobs === null
               ? 'Cargando…'
               : <>
                   {`${totalCompleted} reporte${totalCompleted !== 1 ? 's' : ''} completado${totalCompleted !== 1 ? 's' : ''}`}
                   {totalActive > 0 && (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fef3c7', color: '#92400e', fontSize: 13, fontWeight: 600, padding: '2px 10px', borderRadius: 999 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.2s ease-in-out infinite' }} />
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.2s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
                       {totalActive} en proceso
                     </span>
                   )}
                 </>
             }
-          </p>
+          </div>
         </div>
         <button onClick={() => onNavigate('connect')} className="btn-primary" style={{ padding: '11px 22px', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <Icon name="refresh" size={16} color="white" /> Nuevo sync
@@ -272,7 +312,7 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate }) => {
           <div style={{ width: 36, height: 36, border: '3px solid #ededed', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState hasSearch={!!search || filter !== 'Todos'} onNavigate={onNavigate} />
+        <EmptyState hasSearch={!!search || filter !== 'Todos'} onNavigate={onNavigate} isFree={quota?.plan === 'free'} onShowPlanModal={onShowPlanModal} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
           {filtered.map(job => (

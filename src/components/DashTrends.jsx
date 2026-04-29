@@ -370,7 +370,7 @@ const STAR_SVG = (
   </svg>
 );
 
-const PlanGate = ({ onNavigate }) => (
+const PlanGate = ({ onShowPlanModal }) => (
   <div style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px 24px' }}>
     <div style={{
       background: 'white',
@@ -411,12 +411,12 @@ const PlanGate = ({ onNavigate }) => (
         ))}
       </div>
       <button
-        onClick={() => onNavigate('settings')}
+        onClick={onShowPlanModal}
         style={{ width: '100%', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 24px', fontSize: 15, fontWeight: 700, cursor: 'pointer', letterSpacing: '-0.01em', boxShadow: '0 8px 24px rgba(79,70,229,0.35)', transition: 'opacity 150ms' }}
         onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
         onMouseLeave={e => e.currentTarget.style.opacity = '1'}
       >
-        Actualizar a Pro →
+        Activar plan Plus o Enterprise →
       </button>
       <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.4)', marginTop: 14 }}>
         Sin contratos. Cancela cuando quieras.
@@ -429,7 +429,7 @@ const PlanGate = ({ onNavigate }) => (
 // Main component
 // ---------------------------------------------------------------------------
 
-const DashTrends = ({ plan, onNavigate }) => {
+const DashTrends = ({ plan, onNavigate, onShowPlanModal }) => {
   const [range, setRange] = useState('all');
   const [activeMetric, setActiveMetric] = useState('health');
   const isLocked = plan === 'basic' || plan === 'free' || !plan;
@@ -652,7 +652,7 @@ const DashTrends = ({ plan, onNavigate }) => {
         @media(max-width:1100px){.trends-bot{grid-template-columns:1fr 1fr!important}}
         @media(max-width:700px){.trends-bot{grid-template-columns:1fr!important}}
       `}</style>
-      {isLocked && <PlanGate onNavigate={onNavigate} />}
+      {isLocked && <PlanGate onShowPlanModal={onShowPlanModal} />}
       <div style={isLocked ? { filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none', opacity: 0.6 } : undefined}>
 
       {/* Header */}

@@ -1,22 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Icon } from './Icons';
 
-const PlanGateUpload = ({ title, body, icon }) => (
+const PlanGateUpload = ({ title, body, icon, onShowPlanModal, ctaLabel = 'Ver planes y activar' }) => (
   <div style={{ maxWidth: 560, margin: '60px auto 0', textAlign: 'center', padding: '0 20px' }}>
     <div style={{ width: 72, height: 72, background: 'linear-gradient(135deg,#f4f3ff,#ede9fe)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: '1px solid rgba(79,70,229,0.15)' }}>
       <Icon name={icon} size={34} color="#4f46e5" />
     </div>
     <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0e0749', marginBottom: 10, letterSpacing: '-0.01em' }}>{title}</h2>
     <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.6)', lineHeight: 1.7, marginBottom: 28 }}>{body}</p>
-    <a href="/#precios" style={{ display: 'inline-block', background: '#4f46e5', color: 'white', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: 15, padding: '13px 32px', borderRadius: 10, textDecoration: 'none', transition: 'transform 200ms, box-shadow 200ms', boxShadow: '0 4px 16px rgba(79,70,229,0.3)' }}
+    <button
+      onClick={onShowPlanModal}
+      style={{ display: 'inline-block', background: '#4f46e5', color: 'white', fontFamily: 'DM Sans,sans-serif', fontWeight: 600, fontSize: 15, padding: '13px 32px', borderRadius: 10, border: 'none', cursor: 'pointer', transition: 'transform 200ms, box-shadow 200ms', boxShadow: '0 4px 16px rgba(79,70,229,0.3)' }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,70,229,0.4)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(79,70,229,0.3)'; }}>
-      Ver planes
-    </a>
+      {ctaLabel}
+    </button>
   </div>
 );
 
-const DashUpload = ({ quota }) => {
+const DashUpload = ({ quota, onShowPlanModal }) => {
   const [step, setStep] = useState(1);
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState(null);
@@ -49,7 +51,8 @@ const DashUpload = ({ quota }) => {
         <PlanGateUpload
           icon="upload"
           title="Función exclusiva de Plan Plus y Enterprise"
-          body="La subida manual de archivos .txt de WhatsApp está disponible desde el Plan Plus ($49/mes). Con él también obtienes 2 reportes al mes, 300 conversaciones por reporte, y acceso al dashboard de tendencias."
+          body="La subida manual de archivos .txt de WhatsApp está disponible desde el Plan Plus ($250.000/mes). Con él también obtienes 2 reportes al mes, 300 conversaciones por reporte, y acceso al dashboard de tendencias."
+          onShowPlanModal={onShowPlanModal}
         />
       </div>
     );
@@ -68,6 +71,8 @@ const DashUpload = ({ quota }) => {
           icon="alert"
           title="Cuota del mes agotada"
           body={`Has usado los ${quota.reports.limit} reporte(s) incluidos en tu plan este período. Tu cuota se renueva el ${periodEnd}. Actualiza a un plan superior para obtener más reportes por mes.`}
+          onShowPlanModal={onShowPlanModal}
+          ctaLabel="Cambiar de plan"
         />
       </div>
     );

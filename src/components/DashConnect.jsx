@@ -75,18 +75,194 @@ const ConnectCTA = ({ onConnect, loading, plan }) => (
   </div>
 );
 
-/* ── STARTING spinner ──────────────────────────────────────── */
-const StartingCard = () => (
-  <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '60px 0' }}>
-    <Spinner size={48} />
-    <p style={{ fontSize: 16, color: 'rgba(14,7,73,0.6)', marginTop: 28 }}>
-      Iniciando sesión en nuestros servidores…
-    </p>
-    <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.4)', marginTop: 8 }}>
-      Esto suele tardar menos de 30 segundos.
+/* ── Pre-QR — simple spinner while WAHA starts up ──────────── */
+const PreparingQRCard = () => (
+  <div style={{ maxWidth: 400, margin: '60px auto', textAlign: 'center' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+      <div style={{
+        width: 52, height: 52, borderRadius: '50%',
+        border: '3px solid rgba(37,211,102,0.2)',
+        borderTopColor: '#25d366',
+        animation: 'spin 0.9s linear infinite',
+      }} />
+    </div>
+    <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0e0749', marginBottom: 8 }}>
+      Preparando código QR
+    </h3>
+    <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.45)', lineHeight: 1.6 }}>
+      Esto solo tarda unos segundos…
     </p>
   </div>
 );
+
+/* ── Post-scan — animated flow shown after QR is scanned ───── */
+const WA_STEPS = [
+  { label: 'QR verificado',        sublabel: 'Código escaneado correctamente…',  delay: 0 },
+  { label: 'Autenticando cuenta',  sublabel: 'Confirmando con los servidores…',  delay: 1 },
+  { label: 'Sincronizando datos',  sublabel: 'Preparando tus conversaciones…',   delay: 3 },
+  { label: 'Conexión establecida', sublabel: '¡Tu WhatsApp ya está vinculado!',  delay: 5 },
+];
+
+const StartingCard = () => {
+  const [elapsed, setElapsed] = useState(0);
+  const [doneSteps, setDoneSteps] = useState([]);
+
+  useEffect(() => {
+    const tick = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    const done = WA_STEPS
+      .filter(s => elapsed >= s.delay + 1)
+      .map(s => s.label);
+    setDoneSteps(done);
+  }, [elapsed]);
+
+  const activeIdx = WA_STEPS.reduce((acc, s, i) => elapsed >= s.delay ? i : acc, 0);
+  const progress = Math.min(100, (elapsed / 7) * 100);
+
+  return (
+    <div style={{ maxWidth: 480, margin: '0 auto' }}>
+      <style>{`
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes waRing  { 0%{transform:scale(1);opacity:.5} 100%{transform:scale(2.2);opacity:0} }
+        @keyframes stepIn  { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes barFill { from{width:0%} to{width:var(--bar-w)} }
+        @keyframes waDot   { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+      `}</style>
+
+      {/* Pulsing WhatsApp icon */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+        <div style={{ position: 'relative', width: 96, height: 96 }}>
+          {[1, 1.6, 2.2].map((scale, i) => (
+            <div key={i} style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              border: '2px solid #25d366',
+              animation: `waRing 2.4s ease-out ${i * 0.8}s infinite`,
+            }} />
+          ))}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, #25d366, #128c7e)',
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 28px rgba(37,211,102,0.4)',
+          }}>
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Title + animated dots */}
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 6, letterSpacing: '-0.01em' }}>
+          Conectando WhatsApp
+        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+          <span style={{ fontSize: 14, color: 'rgba(14,7,73,0.5)' }}>
+            {WA_STEPS[activeIdx]?.sublabel}
+          </span>
+          <span style={{ display: 'inline-flex', gap: 3, marginLeft: 2 }}>
+            {[0, 0.2, 0.4].map((delay, i) => (
+              <span key={i} style={{
+                width: 5, height: 5, borderRadius: '50%', background: '#25d366',
+                display: 'inline-block',
+                animation: `waDot 1.4s ease-in-out ${delay}s infinite`,
+              }} />
+            ))}
+          </span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 6, background: '#f0f0f8', borderRadius: 99, marginBottom: 28, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%',
+          width: `${progress}%`,
+          background: 'linear-gradient(90deg, #25d366, #4f46e5)',
+          borderRadius: 99,
+          transition: 'width 1s linear',
+        }} />
+      </div>
+
+      {/* Step list */}
+      <div style={{
+        background: '#f8f7fc', border: '1px solid rgba(79,70,229,0.08)',
+        borderRadius: 16, padding: '20px 22px',
+      }}>
+        {WA_STEPS.map((step, i) => {
+          const isDone = doneSteps.includes(step.label);
+          const isActive = activeIdx === i && !isDone;
+          return (
+            <div
+              key={step.label}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                marginBottom: i < WA_STEPS.length - 1 ? 16 : 0,
+                opacity: elapsed >= step.delay ? 1 : 0.28,
+                transition: 'opacity 0.5s ease',
+              }}
+            >
+              {/* Step indicator */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isDone ? '#22c55e' : isActive ? '#4f46e5' : '#e5e7eb',
+                transition: 'background 0.4s ease',
+                boxShadow: isActive ? '0 0 0 4px rgba(79,70,229,0.15)' : 'none',
+              }}>
+                {isDone ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : isActive ? (
+                  <div style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.4)',
+                    borderTopColor: 'white',
+                    animation: 'spin 0.7s linear infinite',
+                  }} />
+                ) : (
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d1d5db', display: 'block' }} />
+                )}
+              </div>
+
+              {/* Step text */}
+              <div>
+                <div style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: isDone ? '#16a34a' : isActive ? '#0e0749' : 'rgba(14,7,73,0.35)',
+                  transition: 'color 0.3s ease',
+                }}>
+                  {step.label}
+                </div>
+                {isActive && (
+                  <div style={{
+                    fontSize: 11, color: 'rgba(14,7,73,0.45)', marginTop: 1,
+                    animation: 'stepIn 0.3s ease',
+                  }}>
+                    {step.sublabel}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom tip */}
+      <p style={{
+        fontSize: 12, color: 'rgba(14,7,73,0.35)',
+        textAlign: 'center', marginTop: 20, lineHeight: 1.6,
+      }}>
+        Verificando tu conexión con WhatsApp…<br />No cierres esta página.
+      </p>
+    </div>
+  );
+};
 
 /* ── SCAN_QR_CODE ───────────────────────────────────────────── */
 const QRCard = ({ qr }) => (
@@ -139,9 +315,146 @@ const QRCard = ({ qr }) => (
     {/* Disclaimer */}
     <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 12, padding: '16px 20px', marginTop: 32 }}>
       <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.6)', margin: 0, lineHeight: 1.65 }}>
-        <strong>Sobre la seguridad de tu cuenta</strong> — DeepLook se conecta como un dispositivo vinculado, igual que WhatsApp Web en tu computadora. Solo leemos conversaciones pasadas para generar el reporte; nunca enviamos mensajes y la conexión se apaga automáticamente entre reportes. Existe un riesgo muy bajo pero no nulo de restricción por parte de WhatsApp.
+        <strong>Sobre la seguridad de tu cuenta</strong> — DeepLook se conecta como un dispositivo vinculado, igual que WhatsApp Web en tu computadora. Solo leemos conversaciones pasadas para generar el reporte; nunca enviamos mensajes y la conexión se apaga automáticamente entre reportes.
       </p>
     </div>
+  </div>
+);
+
+/* ── Post-QR scan — verification in progress ───────────────── */
+const ScanVerifyingCard = () => {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const progress = Math.min(95, (elapsed / 30) * 100);
+
+  return (
+    <div style={{ maxWidth: 440, margin: '48px auto', textAlign: 'center' }}>
+      <style>{`
+        @keyframes waRingVerify { 0%{transform:scale(1);opacity:.5} 100%{transform:scale(2.2);opacity:0} }
+        @keyframes scanShimmer {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(350%); }
+        }
+      `}</style>
+
+      {/* Pulsing WhatsApp icon */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+        <div style={{ position: 'relative', width: 80, height: 80 }}>
+          {[0, 0.9].map((delay, i) => (
+            <div key={i} style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              border: '2px solid #25d366',
+              animation: `waRingVerify 2.4s ease-out ${delay}s infinite`,
+            }} />
+          ))}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, #25d366, #128c7e)',
+            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 6px 24px rgba(37,211,102,0.4)',
+          }}>
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 10, letterSpacing: '-0.01em' }}>
+        QR escaneado
+      </h3>
+      <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', lineHeight: 1.7, marginBottom: 28 }}>
+        Verificando tu cuenta de WhatsApp Business…<br />
+        <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.4)' }}>Esto puede tardar hasta 30 segundos.</span>
+      </p>
+
+      {/* Animated shimmer progress bar */}
+      <div style={{ height: 5, background: '#f0f0f8', borderRadius: 99, maxWidth: 300, margin: '0 auto 24px', overflow: 'hidden', position: 'relative' }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, height: '100%', width: `${progress}%`,
+          background: 'linear-gradient(90deg, #25d366, #4f46e5)',
+          borderRadius: 99, transition: 'width 1s linear',
+        }} />
+        <div style={{
+          position: 'absolute', top: 0, left: 0, height: '100%', width: '30%',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+          animation: 'scanShimmer 1.6s ease-in-out infinite',
+        }} />
+      </div>
+
+      <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.35)', lineHeight: 1.6 }}>
+        No cierres esta página
+      </p>
+    </div>
+  );
+};
+
+/* ── Personal account warning banner (shown inside ConnectedCard) ── */
+const PersonalAccountWarning = () => (
+  <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+    <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+    <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.55 }}>
+      Estás usando una cuenta <strong>personal de WhatsApp</strong>. Para acceder a todas las métricas de negocio, te recomendamos cambiar a <strong>WhatsApp Business</strong>.
+    </p>
+  </div>
+);
+
+/* ── PERSONAL_ACCOUNT_BLOCKED ───────────────────────────────── */
+const PersonalAccountBlockedCard = ({ onRetry, loading }) => (
+  <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
+    <div style={{ width: 72, height: 72, background: '#fef3c7', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 36 }}>
+      📱
+    </div>
+    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 10 }}>
+      Se necesita WhatsApp Business
+    </h3>
+    <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.6)', lineHeight: 1.7, marginBottom: 24, maxWidth: 420, margin: '0 auto 24px' }}>
+      La cuenta que escaneaste es una cuenta <strong>personal de WhatsApp</strong>.
+      DeepLook solo funciona con cuentas de <strong>WhatsApp Business</strong> para
+      garantizar el acceso a las métricas de negocio.
+    </p>
+
+    {/* Steps to fix */}
+    <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.12)', borderRadius: 14, padding: '20px 24px', marginBottom: 28, textAlign: 'left', maxWidth: 420, margin: '0 auto 28px' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#0e0749', marginBottom: 14 }}>
+        Cómo solucionarlo:
+      </div>
+      {[
+        { n: 1, text: 'Descarga la app "WhatsApp Business" en tu teléfono (gratis).' },
+        { n: 2, text: 'Regístrate con el mismo número de tu negocio.' },
+        { n: 3, text: 'Vuelve aquí y presiona "Intentar de nuevo" para conectar.' },
+      ].map(s => (
+        <div key={s.n} style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 24, height: 24, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{s.n}</div>
+          <span style={{ fontSize: 13, color: '#0e0749', lineHeight: 1.55, paddingTop: 3 }}>{s.text}</span>
+        </div>
+      ))}
+      <a
+        href="https://www.whatsapp.com/business/download"
+        target="_blank" rel="noopener noreferrer"
+        style={{ display: 'inline-block', marginTop: 4, fontSize: 13, color: '#4f46e5', fontWeight: 600, textDecoration: 'none' }}>
+        Descargar WhatsApp Business →
+      </a>
+    </div>
+
+    <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+      <button
+        onClick={onRetry}
+        disabled={loading}
+        className="btn-primary"
+        style={{ padding: '12px 32px', fontSize: 15, opacity: loading ? 0.7 : 1, cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {loading && <Spinner size={16} color="white" />}
+        {loading ? 'Cargando…' : 'Intentar de nuevo'}
+      </button>
+    </div>
+
+    <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.35)', marginTop: 16, lineHeight: 1.6 }}>
+      La cuenta personal que escaneaste ya fue desvinculada automáticamente.
+    </p>
   </div>
 );
 
@@ -149,8 +462,13 @@ const QRCard = ({ qr }) => (
 const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
   const syncFreqLabel = { weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual' }[connection.sync_frequency] ?? connection.sync_frequency;
   const quotaExhausted = quota?.reports?.remaining === 0;
+  // is_business_account: true = WA Business, false = personal, null/undefined = not yet determined
+  const isPersonal = connection.is_business_account === false;
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
+      {/* Personal account warning */}
+      {isPersonal && <PersonalAccountWarning />}
+
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg,#4f46e5,#6c63ff)', borderRadius: 16, padding: '28px 32px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -166,9 +484,16 @@ const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
             </div>
           </div>
         </div>
-        <div style={{ background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', borderRadius: 999, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#bbf7d0' }}>Activo</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+          <div style={{ background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', borderRadius: 999, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%' }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#bbf7d0' }}>Activo</span>
+          </div>
+          {connection.is_business_account === true && (
+            <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 600, color: 'white' }}>
+              WA Business ✓
+            </div>
+          )}
         </div>
       </div>
 
@@ -211,8 +536,8 @@ const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
         </button>
         <button
           onClick={onUnlink}
-          className="btn-ghost"
-          style={{ padding: '13px 22px', fontSize: 14, color: '#ef4444', borderColor: '#ef4444', flexShrink: 0 }}>
+          className="btn-ghost-danger"
+          style={{ padding: '13px 22px', fontSize: 14, flexShrink: 0 }}>
           Desvincular
         </button>
       </div>
@@ -287,19 +612,38 @@ const ConnectedModal = ({ onGoToReports }) => (
 const UnlinkModal = ({ onConfirm, onCancel, loading }) => (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(14,7,73,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
     <div style={{ background: 'white', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '100%', boxShadow: '0 24px 80px rgba(14,7,73,0.2)' }}>
-      <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 12 }}>¿Desvincular WhatsApp?</h3>
-      <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.6)', lineHeight: 1.65, marginBottom: 28 }}>
-        Esto desconectará tu cuenta de WhatsApp de DeepLook. Perderás los reportes automáticos, aunque tus reportes ya generados seguirán disponibles. Para reconectar necesitarás escanear un código QR nuevo.
-      </p>
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-        <button onClick={onCancel} className="btn-ghost" style={{ padding: '10px 22px' }}>Cancelar</button>
-        <button
-          onClick={onConfirm}
-          disabled={loading}
-          style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 14, fontWeight: 600, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'DM Sans,sans-serif' }}>
-          {loading ? 'Desvinculando…' : 'Desvincular'}
-        </button>
-      </div>
+      {loading ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              border: '3px solid #fecaca', borderTopColor: '#ef4444',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0e0749', marginBottom: 8, textAlign: 'center' }}>
+            Desvinculando…
+          </h3>
+          <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
+            Reconectando con WhatsApp para revocar el dispositivo.<br />Esto puede tardar hasta 15 segundos.
+          </p>
+        </>
+      ) : (
+        <>
+          <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 12 }}>¿Desvincular WhatsApp?</h3>
+          <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.6)', lineHeight: 1.65, marginBottom: 28 }}>
+            Esto eliminará "DeepLook" de tus dispositivos vinculados en WhatsApp. Perderás los reportes automáticos, aunque los reportes ya generados seguirán disponibles. Para reconectar necesitarás escanear un código QR nuevo.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+            <button onClick={onCancel} className="btn-ghost" style={{ padding: '10px 22px' }}>Cancelar</button>
+            <button
+              onClick={onConfirm}
+              style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+              Desvincular
+            </button>
+          </div>
+        </>
+      )}
     </div>
   </div>
 );
@@ -314,6 +658,12 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
   const [error, setError] = useState(null);
   const [showUnlinkModal, setShowUnlinkModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [scanDetected, setScanDetected] = useState(false);
+  // Guard: auto-sync fires exactly once per QR scan session
+  const autoSyncFiredRef = useRef(false);
+  // Track whether a QR image was successfully shown at least once in this session
+  const qrShownRef = useRef(false);
 
   // Ref always holds the latest conn so polling callbacks don't go stale
   const connRef = useRef(conn);
@@ -323,14 +673,23 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
   // Keep local state in sync when parent updates (e.g. initial load)
   useEffect(() => { setConn(connectionProp); }, [connectionProp]);
 
-  // Auto-trigger sync and show success modal when QR scan completes
+  // When verification completes successfully: show the connecting animation for ~7s, then success modal.
+  // Triggers on CHECKING_ACCOUNT → WORKING (the new two-phase path) or SCAN_QR_CODE → WORKING (fallback).
   useEffect(() => {
     const prev = prevStatusRef.current;
     const current = conn?.status;
-    if (prev === 'SCAN_QR_CODE' && current === 'WORKING' && conn?.id) {
-      // Fire sync immediately — best-effort, don't block the modal on failure
-      api.post(`/api/v1/whatsapp/connections/${conn.id}/sync`, { body: {} }).catch(() => {});
-      setShowSuccessModal(true);
+    if ((prev === 'SCAN_QR_CODE' || prev === 'CHECKING_ACCOUNT') && current === 'WORKING' && conn?.id) {
+      // Fire the first sync exactly once — guard prevents double-trigger from React re-renders
+      if (!autoSyncFiredRef.current) {
+        autoSyncFiredRef.current = true;
+        api.post(`/api/v1/whatsapp/connections/${conn.id}/sync`, { body: {} }).catch(() => {});
+      }
+      setIsConnecting(true);
+      const t = setTimeout(() => {
+        setIsConnecting(false);
+        setShowSuccessModal(true);
+      }, 7500);
+      return () => clearTimeout(t);
     }
     prevStatusRef.current = current;
   }, [conn?.status, conn?.id, api]);
@@ -340,9 +699,9 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
     onConnectionUpdate?.(newConn);
   };
 
-  // Poll status every 2s while STARTING or SCAN_QR_CODE
+  // Poll status every 2s while STARTING, SCAN_QR_CODE, or CHECKING_ACCOUNT
   useEffect(() => {
-    if (!conn?.id || !['STARTING', 'SCAN_QR_CODE'].includes(conn.status)) return;
+    if (!conn?.id || !['STARTING', 'SCAN_QR_CODE', 'CHECKING_ACCOUNT'].includes(conn.status)) return;
     const connId = conn.id;
     const poll = setInterval(async () => {
       try {
@@ -358,15 +717,27 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
     return () => clearInterval(poll);
   }, [conn?.id, conn?.status]);
 
-  // Fetch QR once when SCAN_QR_CODE, refresh every 20s
+  // Fetch QR once when SCAN_QR_CODE, refresh every 20s.
+  // If the fetch fails after a QR was already shown, the QR was almost certainly scanned —
+  // switch to the verification loading card while the status poll catches up.
   useEffect(() => {
-    if (conn?.status !== 'SCAN_QR_CODE') { setQr(null); return; }
+    if (conn?.status !== 'SCAN_QR_CODE') {
+      setQr(null);
+      setScanDetected(false);
+      qrShownRef.current = false;
+      return;
+    }
     let active = true;
     const fetchQr = async () => {
       try {
         const data = await api.get(`/api/v1/whatsapp/connections/${conn.id}/qr`);
-        if (active) setQr(data);
-      } catch {}
+        if (active) {
+          setQr(data);
+          qrShownRef.current = true;
+        }
+      } catch {
+        if (active && qrShownRef.current) setScanDetected(true);
+      }
     };
     fetchQr();
     const iv = setInterval(fetchQr, 20000);
@@ -416,7 +787,45 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
   };
 
   const status = conn?.status ?? null;
-  const isConnected = ['WORKING', 'STOPPED'].includes(status);
+  // STOPPED + no phone means brand-new session (no credentials saved yet) → needs QR flow
+  // STOPPED + phone means session was paused after a sync → credentials saved, show ConnectedCard
+  const isConnected = status === 'WORKING' || (status === 'STOPPED' && !!conn?.phone_number);
+  const needsQRStart = status === 'STOPPED' && !conn?.phone_number;
+  const isPersonalBlocked = status === 'PERSONAL_ACCOUNT_BLOCKED';
+
+  // When a brand-new STOPPED connection has no saved credentials, auto-start the session
+  // The QR endpoint handles STOPPED → starts WAHA → waits → returns QR or 409 if already WORKING
+  useEffect(() => {
+    if (!needsQRStart || !conn?.id) return;
+    let active = true;
+    const startSession = async () => {
+      try {
+        const data = await api.get(`/api/v1/whatsapp/connections/${conn.id}/qr`);
+        if (!active) return;
+        setConn(prev => ({ ...prev, status: 'SCAN_QR_CODE' }));
+        onConnectionUpdate?.({ ...conn, status: 'SCAN_QR_CODE' });
+        setQr(data);
+      } catch (e) {
+        if (!active) return;
+        if (e.status === 409) {
+          // 409 = session is in a known non-QR state (already connected, blocked, not ready).
+          // Refresh live status so the UI renders the correct card.
+          try {
+            const statusData = await api.get(`/api/v1/whatsapp/connections/${conn.id}/status`);
+            const updated = { ...conn, ...statusData };
+            setConn(updated);
+            onConnectionUpdate?.(updated);
+          } catch {}
+        } else {
+          setError(e.message || 'No se pudo iniciar la sesión de WhatsApp.');
+          setConn(prev => ({ ...prev, status: 'FAILED' }));
+          onConnectionUpdate?.({ ...conn, status: 'FAILED' });
+        }
+      }
+    };
+    startSession();
+    return () => { active = false; };
+  }, [conn?.id, needsQRStart]);
 
   return (
     <div className="dash-page page-fade">
@@ -461,11 +870,15 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
         <ConnectCTA onConnect={handleConnect} loading={loading} plan={client?.plan} />
       )}
 
-      {status === 'STARTING' && <StartingCard />}
+      {(status === 'STARTING' || needsQRStart) && <PreparingQRCard />}
 
-      {status === 'SCAN_QR_CODE' && <QRCard qr={qr} />}
+      {status === 'SCAN_QR_CODE' && !isConnecting && !scanDetected && <QRCard qr={qr} />}
+      {status === 'SCAN_QR_CODE' && !isConnecting && scanDetected && <ScanVerifyingCard />}
+      {status === 'CHECKING_ACCOUNT' && <ScanVerifyingCard />}
 
-      {isConnected && (
+      {isConnecting && <StartingCard />}
+
+      {isConnected && !isConnecting && (
         <ConnectedCard
           connection={conn}
           onSync={handleSync}
@@ -476,6 +889,22 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
       )}
 
       {status === 'FAILED' && <FailedCard onRetry={handleConnect} loading={loading} />}
+
+      {isPersonalBlocked && (
+        <PersonalAccountBlockedCard
+          loading={loading}
+          onRetry={async () => {
+            // Clean up the blocked connection from DB so user can start fresh.
+            if (!conn?.id) return;
+            setLoading(true);
+            try {
+              await api.delete(`/api/v1/whatsapp/connections/${conn.id}`);
+            } catch {}
+            updateConn(null);
+            setLoading(false);
+          }}
+        />
+      )}
     </div>
   );
 };

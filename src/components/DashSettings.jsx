@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/react';
 import { Icon } from './Icons';
 import { useApiClient } from '../lib/api';
@@ -8,6 +8,30 @@ const PLAN_LABELS = {
   basic: 'Plan Básico',
   plus: 'Plan Plus',
   enterprise: 'Plan Enterprise',
+};
+
+const PLAN_PRICES_COP = { basic: 160_000, plus: 250_000, enterprise: 400_000 };
+
+const PAYMENT_STATUS_MAP = {
+  approved: { label: 'Aprobado',  color: '#16a34a', bg: '#f0fdf4' },
+  declined: { label: 'Rechazado', color: '#dc2626', bg: '#fef2f2' },
+  pending:  { label: 'Pendiente', color: '#d97706', bg: '#fffbeb' },
+  voided:   { label: 'Anulado',   color: '#6b7280', bg: '#f9fafb' },
+};
+
+const formatCOP = (cents) => {
+  if (cents == null) return '—';
+  return `$${Math.round(cents / 100).toLocaleString('es-CO')} COP`;
+};
+
+const formatDateLong = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
+const formatRenewal = (iso) => {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
 };
 
 const BUSINESS_TYPES = [
@@ -142,11 +166,23 @@ const DeleteModal = ({ onConfirm, onCancel, loading, error }) => {
   );
 };
 
-const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, quota }) => {
+const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, quota, onShowPlanModal }) => {
   const { user } = useUser();
   const { signOut } = useClerk();
   const api = useApiClient();
   const [tab, setTab] = useState('Perfil');
+
+  const [paymentHistory, setPaymentHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'Plan y facturación') return;
+    setHistoryLoading(true);
+    api.get('/api/v1/billing/payment-history')
+      .then(data => setPaymentHistory(data))
+      .catch(() => setPaymentHistory([]))
+      .finally(() => setHistoryLoading(false));
+  }, [tab]);
 
   const [profileForm, setProfileForm] = useState(() => {
     const { countryCode, number } = parsePhone(client?.phone);
@@ -282,11 +318,6 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
   };
 
   const tabs = ['Perfil', 'Negocio', 'WhatsApp', 'Plan y facturación', 'Notificaciones', 'Seguridad'];
-  const invoices = [
-    { date: '15 abr 2026', plan: planLabel, amount: '$160,000 COP', status: 'Pagado' },
-    { date: '15 mar 2026', plan: planLabel, amount: '$160,000 COP', status: 'Pagado' },
-    { date: '15 feb 2026', plan: planLabel, amount: '$160,000 COP', status: 'Pagado' },
-  ];
 
   return (
     <div className="dash-page page-fade">
@@ -440,78 +471,117 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
         </div>
       )}
 
-      {tab === 'Plan y facturación' && (
-        <div>
-          <div style={{ background: 'linear-gradient(135deg,#4f46e5,#6c63ff)', borderRadius: 16, padding: '28px 36px', marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, letterSpacing: '0.08em', marginBottom: 6 }}>PLAN ACTUAL</div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: 'white', marginBottom: 4 }}>{planLabel}</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Renovación el 15 de mayo · $160,000 COP/mes</div>
-            </div>
-            <button style={{ background: 'white', color: '#4f46e5', border: 'none', borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Cambiar de plan</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 24, marginBottom: 28 }} className="settings-grid">
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0e0749', marginBottom: 14 }}>Método de pago</div>
-              <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <Icon name="credit_card" size={22} color="#4f46e5" />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#0e0749' }}>Visa •••• 4521</div>
-                  <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.45)' }}>Vence 08/28</div>
+      {tab === 'Plan y facturación' && (() => {
+        const renewalDate = formatRenewal(quota?.billing_period_end);
+        const planPrice = PLAN_PRICES_COP[client?.plan];
+        const isActive = quota?.subscription_status === 'active';
+        return (
+          <div>
+            {/* Plan banner */}
+            <div style={{ background: 'linear-gradient(135deg,#4f46e5,#6c63ff)', borderRadius: 16, padding: '28px 36px', marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, letterSpacing: '0.08em' }}>PLAN ACTUAL</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, letterSpacing: '0.05em', textTransform: 'uppercase', background: isActive ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.15)', color: isActive ? '#6ee7b7' : 'rgba(255,255,255,0.6)' }}>
+                    {isActive ? 'Activo' : 'Inactivo'}
+                  </span>
                 </div>
-                <button style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Editar</button>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'white', marginBottom: 4 }}>{planLabel}</div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
+                  {renewalDate
+                    ? `Renovación el ${renewalDate}${planPrice ? ` · $${planPrice.toLocaleString('es-CO')} COP/mes` : ''}`
+                    : 'Sin suscripción activa'}
+                </div>
+              </div>
+              <button
+                onClick={onShowPlanModal}
+                style={{ background: 'white', color: '#4f46e5', border: 'none', borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+                Cambiar de plan
+              </button>
+            </div>
+
+            {/* Method + Usage */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 24, marginBottom: 28 }} className="settings-grid">
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#0e0749', marginBottom: 14 }}>Método de pago</div>
+                <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 12, padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <Icon name="credit_card" size={22} color="#4f46e5" />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#0e0749' }}>Pagos gestionados por Wompi</div>
+                    <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.45)' }}>Pasarela de pago segura 🇨🇴</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 12, padding: '18px 22px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0e0749', marginBottom: 8 }}>Uso del período actual</div>
+                {quota ? (
+                  <>
+                    <div style={{ fontFamily: 'JetBrains Mono', fontSize: 28, fontWeight: 700, color: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', marginBottom: 4 }}>
+                      {quota.reports?.used ?? 0} / {quota.reports?.limit ?? 0}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 12 }}>reportes generados este período</div>
+                    <div style={{ background: '#ededed', borderRadius: 3, height: 5, overflow: 'hidden', marginBottom: 10 }}>
+                      <div style={{ height: '100%', width: `${quota.reports?.limit > 0 ? Math.min(100, (quota.reports.used / quota.reports.limit) * 100) : 0}%`, background: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', borderRadius: 3, transition: 'width 600ms ease' }} />
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[
+                        { label: `Hasta ${quota.conversations_per_report} convs/reporte`, active: true },
+                        { label: `${quota.lookback_days} días historial`, active: true },
+                        { label: 'Subida manual', active: quota.features?.manual_upload },
+                        { label: 'Tendencias', active: quota.features?.trends_dashboard },
+                      ].map(({ label, active }) => (
+                        <span key={label} style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: active ? 'rgba(79,70,229,0.12)' : '#ededed', color: active ? '#4f46e5' : 'rgba(14,7,73,0.35)', textDecoration: active ? 'none' : 'line-through' }}>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: 'JetBrains Mono', fontSize: 28, fontWeight: 700, color: '#4f46e5', marginBottom: 4 }}>—</div>
+                    <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 12 }}>Cargando uso…</div>
+                    <div style={{ background: '#ededed', borderRadius: 3, height: 5 }} />
+                  </>
+                )}
               </div>
             </div>
-            <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 12, padding: '18px 22px' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0e0749', marginBottom: 8 }}>Uso del período actual</div>
-              {quota ? (
-                <>
-                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 28, fontWeight: 700, color: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', marginBottom: 4 }}>
-                    {quota.reports?.used ?? 0} / {quota.reports?.limit ?? 0}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 12 }}>reportes generados este mes</div>
-                  <div style={{ background: '#ededed', borderRadius: 3, height: 5, overflow: 'hidden', marginBottom: 10 }}>
-                    <div style={{ height: '100%', width: `${quota.reports?.limit > 0 ? Math.min(100, (quota.reports.used / quota.reports.limit) * 100) : 0}%`, background: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', borderRadius: 3, transition: 'width 600ms ease' }} />
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {[
-                      { label: `Hasta ${quota.conversations_per_report} convs/reporte`, active: true },
-                      { label: `${quota.lookback_days} días historial`, active: true },
-                      { label: 'Subida manual', active: quota.features?.manual_upload },
-                      { label: 'Tendencias', active: quota.features?.trends_dashboard },
-                    ].map(({ label, active }) => (
-                      <span key={label} style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: active ? 'rgba(79,70,229,0.12)' : '#ededed', color: active ? '#4f46e5' : 'rgba(14,7,73,0.35)', textDecoration: active ? 'none' : 'line-through' }}>
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 28, fontWeight: 700, color: '#4f46e5', marginBottom: 4 }}>—</div>
-                  <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 12 }}>Cargando uso…</div>
-                  <div style={{ background: '#ededed', borderRadius: 3, height: 5 }} />
-                </>
+
+            {/* Payment history */}
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0e0749', marginBottom: 14 }}>Historial de pagos</div>
+            <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', padding: '12px 20px', background: '#f8f7ff', fontSize: 12, fontWeight: 600, color: 'rgba(14,7,73,0.5)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {['Fecha', 'Plan', 'Monto', 'Estado'].map(h => <span key={h}>{h}</span>)}
+              </div>
+              {historyLoading && (
+                <div style={{ padding: '24px 20px', fontSize: 14, color: 'rgba(14,7,73,0.45)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 16, height: 16, border: '2px solid #ededed', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+                  Cargando historial…
+                </div>
               )}
+              {!historyLoading && paymentHistory?.length === 0 && (
+                <div style={{ padding: '32px 20px', fontSize: 14, color: 'rgba(14,7,73,0.4)', textAlign: 'center' }}>
+                  Sin pagos registrados aún.
+                </div>
+              )}
+              {!historyLoading && paymentHistory?.map((p) => {
+                const st = PAYMENT_STATUS_MAP[p.status] ?? { label: p.status, color: '#6b7280', bg: '#f9fafb' };
+                return (
+                  <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', padding: '14px 20px', borderTop: '1px solid #ededed', fontSize: 14, color: '#0e0749', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.65)' }}>{formatDateLong(p.created_at)}</span>
+                    <span style={{ fontWeight: 500 }}>{PLAN_LABELS[p.plan] ?? p.plan}</span>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13 }}>{formatCOP(p.amount_in_cents)}</span>
+                    <span>
+                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: st.bg, color: st.color }}>
+                        {st.label}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#0e0749', marginBottom: 14 }}>Historial de facturas</div>
-          <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 40px', padding: '12px 20px', background: '#f8f7ff', fontSize: 12, fontWeight: 600, color: 'rgba(14,7,73,0.5)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              {['Fecha', 'Plan', 'Monto', 'Estado', ''].map(h => <span key={h}>{h}</span>)}
-            </div>
-            {invoices.map((inv, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 40px', padding: '14px 20px', borderTop: '1px solid #ededed', fontSize: 14, color: '#0e0749', alignItems: 'center' }}>
-                <span>{inv.date}</span>
-                <span>{inv.plan}</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13 }}>{inv.amount}</span>
-                <span style={{ color: '#22c55e', fontWeight: 600 }}>{inv.status}</span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><Icon name="download" size={15} color="#4f46e5" /></button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {tab === 'Notificaciones' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 40, alignItems: 'start' }} className="settings-grid">
