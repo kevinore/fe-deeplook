@@ -51,9 +51,24 @@ export const useApiClient = () => {
 
     if (!res.ok) {
       const payload = await res.json().catch(() => ({}));
-      const message = payload.detail || payload.message || payload.error || `HTTP ${res.status}`;
+      // FastAPI returns either:
+      //   - {detail: "string"}  → simple errors
+      //   - {detail: {code, message, ...}}  → structured errors with a code
+      //   - {detail: [{loc,msg,...}]}  → Pydantic validation
+      let message;
+      const d = payload.detail;
+      if (typeof d === 'string') {
+        message = d;
+      } else if (d && typeof d === 'object' && !Array.isArray(d) && typeof d.message === 'string') {
+        message = d.message;
+      } else if (Array.isArray(d) && d[0]?.msg) {
+        message = d.map(e => e.msg).join('; ');
+      } else {
+        message = payload.message || payload.error || `HTTP ${res.status}`;
+      }
       const err = new Error(message);
       err.status = res.status;
+      err.code = (d && typeof d === 'object' && !Array.isArray(d)) ? d.code : undefined;
       err.data = payload;
       throw err;
     }

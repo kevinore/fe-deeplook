@@ -609,6 +609,139 @@ const ConnectedModal = ({ onGoToReports }) => (
 );
 
 /* ── Unlink confirmation modal ─────────────────────────────── */
+/**
+ * ConfirmSyncModal — shown when the user clicks "Generar reporte ahora".
+ * Makes it crystal-clear that a manual sync consumes one of their monthly quota
+ * and pushes back the next automatic report. Without this, users could exhaust
+ * their plan unintentionally and stop receiving auto-reports.
+ */
+const ConfirmSyncModal = ({ connection, quota, onConfirm, onCancel, loading }) => {
+  const planLabel = { free: 'Free', basic: 'Básico', plus: 'Plus', enterprise: 'Enterprise' }[quota?.plan] || (quota?.plan ?? '—');
+  const freqLabel = { weekly: 'cada 7 días', biweekly: 'cada 15 días', monthly: 'cada 30 días' }[connection?.sync_frequency] || 'periódico';
+  const limit = quota?.reports?.limit ?? 0;
+  const used = quota?.reports?.used ?? 0;
+  const remaining = quota?.reports?.remaining ?? 0;
+
+  // After this manual sync the user will have used (used + 1) and have (remaining - 1) left.
+  const afterUsed = used + 1;
+  const afterRemaining = Math.max(0, remaining - 1);
+  const willBeLast = remaining === 1;
+
+  // Days until next AUTO sync (informational — helps user decide)
+  let daysUntilNext = null;
+  let nextDateStr = null;
+  if (connection?.next_scheduled_sync_at) {
+    const nextDate = new Date(connection.next_scheduled_sync_at);
+    nextDateStr = formatDate(connection.next_scheduled_sync_at);
+    const ms = nextDate.getTime() - Date.now();
+    daysUntilNext = Math.max(0, Math.ceil(ms / 86400000));
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(14,7,73,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: 'white', borderRadius: 18, padding: '32px 36px', maxWidth: 480, width: '100%', boxShadow: '0 24px 80px rgba(14,7,73,0.22)', maxHeight: '90vh', overflowY: 'auto' }}>
+        {loading ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <Spinner size={42} color="#4f46e5" />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0e0749', marginBottom: 8, textAlign: 'center' }}>
+              Iniciando reporte…
+            </h3>
+            <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
+              Estamos sincronizando tu WhatsApp y procesando el análisis. Te avisaremos por correo cuando esté listo.
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Header with warning icon */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="alert" size={22} color="#d97706" />
+              </div>
+              <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', margin: 0, lineHeight: 1.3 }}>
+                ¿Generar un reporte manual ahora?
+              </h3>
+            </div>
+
+            <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.7)', lineHeight: 1.65, marginBottom: 22 }}>
+              Esto consumirá <strong>1 reporte de tu cuota del período actual</strong>. Si decides hacerlo, tendrás un reporte menos disponible para los próximos análisis automáticos del mes.
+            </p>
+
+            {/* Plan + quota breakdown */}
+            <div style={{ background: '#f9fafb', border: '1px solid #ededed', borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5', marginBottom: 4, letterSpacing: '0.02em' }}>
+                Plan {planLabel} · sincronización {freqLabel}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.5)', marginBottom: 14 }}>
+                Tu plan incluye {limit} reporte{limit !== 1 ? 's' : ''} por período de facturación.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 10, padding: '12px 8px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 22, fontWeight: 700, color: '#0e0749', lineHeight: 1 }}>{limit}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.55)', marginTop: 4 }}>Total del plan</div>
+                </div>
+                <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 10, padding: '12px 8px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 22, fontWeight: 700, color: '#a78bfa', lineHeight: 1 }}>{used}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.55)', marginTop: 4 }}>Usados</div>
+                </div>
+                <div style={{ background: 'white', border: '1px solid #c7d2fe', borderRadius: 10, padding: '12px 8px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono', fontSize: 22, fontWeight: 700, color: '#22c55e', lineHeight: 1 }}>{remaining}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.55)', marginTop: 4 }}>Disponibles</div>
+                </div>
+              </div>
+
+              {/* After-sync preview */}
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed #e5e7eb', fontSize: 12, color: 'rgba(14,7,73,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Después de este reporte:</span>
+                <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 600, color: afterRemaining === 0 ? '#ef4444' : '#0e0749' }}>
+                  {afterUsed}/{limit} usados · {afterRemaining} disponible{afterRemaining !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Last-one warning */}
+            {willBeLast && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 14px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <Icon name="alert" size={16} color="#dc2626" />
+                <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.55 }}>
+                  Este sería tu <strong>último reporte</strong> de este período. No recibirás más análisis automáticos hasta que se renueve tu cuota.
+                </div>
+              </div>
+            )}
+
+            {/* Next automatic sync */}
+            {nextDateStr && remaining > 1 && (
+              <div style={{ background: '#f0effe', border: '1px solid #c4b5fd', borderRadius: 10, padding: '12px 14px', marginBottom: 22, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <Icon name="clock" size={16} color="#4f46e5" />
+                <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.75)', lineHeight: 1.55 }}>
+                  Si prefieres no usar tu cuota ahora, tu próximo reporte se generará automáticamente el <strong>{nextDateStr}</strong>
+                  {daysUntilNext !== null && daysUntilNext > 0 && <> (en {daysUntilNext} día{daysUntilNext !== 1 ? 's' : ''})</>}.
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button onClick={onCancel} className="btn-ghost" style={{ padding: '11px 22px', fontSize: 14 }}>
+                Cancelar
+              </button>
+              <button
+                onClick={onConfirm}
+                className="btn-primary"
+                style={{ padding: '11px 22px', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="refresh" size={16} color="white" />
+                Sí, generar ahora
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 const UnlinkModal = ({ onConfirm, onCancel, loading }) => (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(14,7,73,0.55)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
     <div style={{ background: 'white', borderRadius: 16, padding: '32px 36px', maxWidth: 440, width: '100%', boxShadow: '0 24px 80px rgba(14,7,73,0.2)' }}>
@@ -658,6 +791,7 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
   const [error, setError] = useState(null);
   const [showUnlinkModal, setShowUnlinkModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showConfirmSync, setShowConfirmSync] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [scanDetected, setScanDetected] = useState(false);
   // Guard: auto-sync fires exactly once per QR scan session
@@ -765,10 +899,12 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
     try {
       await api.post(`/api/v1/whatsapp/connections/${conn.id}/sync`, { body: {} });
       onQuotaRefresh?.();
+      setShowConfirmSync(false);
       onNavigate('reports');
     } catch (e) {
       setError(e.message || 'No se pudo iniciar la sincronización.');
       setSyncing(false);
+      setShowConfirmSync(false);
     }
   };
 
@@ -839,6 +975,15 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
           loading={loading}
         />
       )}
+      {showConfirmSync && (
+        <ConfirmSyncModal
+          connection={conn}
+          quota={quota}
+          loading={syncing}
+          onConfirm={handleSync}
+          onCancel={() => setShowConfirmSync(false)}
+        />
+      )}
 
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: '#0e0749', marginBottom: 4, letterSpacing: '-0.02em' }}>
@@ -881,7 +1026,7 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
       {isConnected && !isConnecting && (
         <ConnectedCard
           connection={conn}
-          onSync={handleSync}
+          onSync={() => setShowConfirmSync(true)}
           onUnlink={() => setShowUnlinkModal(true)}
           syncing={syncing}
           quota={quota}

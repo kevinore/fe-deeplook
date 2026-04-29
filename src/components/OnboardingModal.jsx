@@ -90,6 +90,7 @@ const OnboardingModal = ({ onComplete }) => {
     phoneNumber: '',
     identifiers: '',
   });
+  const [policiesAccepted, setPoliciesAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -102,6 +103,7 @@ const OnboardingModal = ({ onComplete }) => {
     if (!form.businessName.trim()) return setError('El nombre del negocio es requerido.');
     if (!form.businessType) return setError('Por favor selecciona el tipo de negocio.');
     if (!form.phoneNumber.trim()) return setError('El número de WhatsApp es requerido.');
+    if (!policiesAccepted) return setError('Debes aceptar la Política de Privacidad y los Términos de Servicio para continuar.');
 
     const identifiersList = form.identifiers
       .split(',')
@@ -118,6 +120,7 @@ const OnboardingModal = ({ onComplete }) => {
           business_type: form.businessType,
           phone: `${form.countryCode}${form.phoneNumber.trim()}`,
           business_identifiers: identifiersList,
+          policies_accepted: true,
         },
       });
       onComplete(client);
@@ -213,6 +216,57 @@ const OnboardingModal = ({ onComplete }) => {
             />
           </Field>
 
+          {/* Habeas Data — explicit consent (Ley 1581/2012) */}
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            marginBottom: 18,
+            padding: '12px 14px',
+            background: policiesAccepted ? '#eef2ff' : '#fafafa',
+            border: `1px solid ${policiesAccepted ? '#c7d2fe' : '#e2e2e2'}`,
+            borderRadius: 10,
+            cursor: 'pointer',
+            transition: 'all 150ms',
+          }}>
+            <input
+              type="checkbox"
+              checked={policiesAccepted}
+              onChange={(e) => setPoliciesAccepted(e.target.checked)}
+              style={{
+                marginTop: 2,
+                width: 16,
+                height: 16,
+                accentColor: '#4f46e5',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 12.5, color: 'rgba(14,7,73,0.75)', lineHeight: 1.55 }}>
+              He leído y acepto la{' '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{ color: '#4f46e5', textDecoration: 'underline', fontWeight: 600 }}
+              >
+                Política de Privacidad
+              </a>
+              {' '}y los{' '}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{ color: '#4f46e5', textDecoration: 'underline', fontWeight: 600 }}
+              >
+                Términos de Servicio
+              </a>
+              . Autorizo el tratamiento de mis datos según la Ley 1581 de 2012 (Habeas Data).
+            </span>
+          </label>
+
           {error && (
             <div style={{
               background: '#fef2f2', border: '1px solid #fee2e2',
@@ -225,13 +279,13 @@ const OnboardingModal = ({ onComplete }) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !policiesAccepted}
             className="btn-primary"
             style={{
               width: '100%', padding: '13px 24px',
               fontSize: 15, fontWeight: 700, borderRadius: 10,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: (loading || !policiesAccepted) ? 0.5 : 1,
+              cursor: (loading || !policiesAccepted) ? 'not-allowed' : 'pointer',
             }}
           >
             {loading ? 'Guardando…' : 'Comenzar a usar DeepLook →'}

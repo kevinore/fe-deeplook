@@ -631,7 +631,7 @@ const DashTrends = ({ plan, onNavigate, onShowPlanModal }) => {
 
   const topTopic = topTopics[0]?.label;
   const topicInsight = topTopic
-    ? { icon: 'lightbulb', color: '#4f46e5', bg: '#f0effe', border: '#c4b5fd', title: `Oportunidad: ${topTopic}`, text: `"${topTopic}" es el tema que más consultan tus clientes (${topTopics[0]?.pct}% de menciones). Optimiza tu respuesta para este tema.` }
+    ? { icon: 'lightbulb', color: '#4f46e5', bg: '#f0effe', border: '#c4b5fd', title: `Oportunidad: ${topTopic}`, text: `"${topTopic}" es el tema que más consultan tus clientes (${topTopics[0]?.pct}% de tus conversaciones). Optimiza tu respuesta para este tema.` }
     : { icon: 'lightbulb', color: '#a78bfa', bg: '#f5f3ff', border: '#ddd6fe', title: 'Sin datos de temas aún', text: 'Los temas más consultados aparecerán aquí cuando tengas reportes completados.' };
 
   const strengthDim = breakdown.find(d => d.is_strength);
@@ -837,7 +837,7 @@ const DashTrends = ({ plan, onNavigate, onShowPlanModal }) => {
               <div style={{ marginTop: 16, background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5', marginBottom: 4 }}>Acción recomendada</div>
                 <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.7)', lineHeight: 1.55 }}>
-                  El {topTopics[0].pct}% de menciones es sobre "{topTopics[0].label}". Crea una respuesta rápida para atenderlo en segundos.
+                  El {topTopics[0].pct}% de tus conversaciones son sobre "{topTopics[0].label}". Crea una respuesta rápida para atenderlo en segundos.
                 </div>
               </div>
             </>
