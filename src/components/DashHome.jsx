@@ -349,7 +349,7 @@ const QuotaChip = ({ icon, label, active }) => (
 );
 
 const QuotaPanel = ({ quota, onNavigate }) => {
-  if (!quota) return null;
+  if (!quota?.reports) return null;
 
   const { plan, reports, conversations_per_report, lookback_days, features, billing_period_end } = quota;
   const usedPct = reports.limit > 0 ? Math.min(100, (reports.used / reports.limit) * 100) : 0;

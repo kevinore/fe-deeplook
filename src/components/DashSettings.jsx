@@ -521,7 +521,7 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
                     </div>
                     <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 12 }}>reportes generados este período</div>
                     <div style={{ background: '#ededed', borderRadius: 3, height: 5, overflow: 'hidden', marginBottom: 10 }}>
-                      <div style={{ height: '100%', width: `${quota.reports?.limit > 0 ? Math.min(100, (quota.reports.used / quota.reports.limit) * 100) : 0}%`, background: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', borderRadius: 3, transition: 'width 600ms ease' }} />
+                      <div style={{ height: '100%', width: `${quota.reports?.limit > 0 ? Math.min(100, ((quota.reports?.used ?? 0) / quota.reports.limit) * 100) : 0}%`, background: quota.reports?.remaining === 0 ? '#ef4444' : '#4f46e5', borderRadius: 3, transition: 'width 600ms ease' }} />
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {[

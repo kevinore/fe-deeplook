@@ -545,7 +545,7 @@ const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
       {quotaExhausted && (
         <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name="alert" size={14} color="#ef4444" />
-          Has usado todos los reportes de este período ({quota.reports.used}/{quota.reports.limit}). Tu cuota se renueva a inicios del próximo mes.
+          Has usado todos los reportes de este período ({quota?.reports?.used ?? 0}/{quota?.reports?.limit ?? 0}). Tu cuota se renueva a inicios del próximo mes.
         </div>
       )}
 
