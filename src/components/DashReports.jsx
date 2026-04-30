@@ -188,7 +188,7 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal })
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [downloadingIds, setDownloadingIds] = useState(new Set());
-  const [error] = useState(null);
+  const [error, setError] = useState(null);
   const apiRef = useRef(api);
   useEffect(() => { apiRef.current = api; }, [api]);
 
