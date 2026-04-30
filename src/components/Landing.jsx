@@ -240,7 +240,7 @@ const HeroSection = ({ onNavigate }) => {
           <p style={{ fontSize: 18, color: 'rgba(14,7,73,0.7)', lineHeight: 1.7, maxWidth: 520, marginBottom: 36 }}>DeepLook analiza tus conversaciones de WhatsApp Business y te entrega reportes claros con las acciones exactas que debes tomar para vender más. Sin instalaciones complicadas.</p>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
             <button onClick={() => onNavigate('signup')} className="btn-primary" style={{ padding: '14px 28px', fontSize: 16 }}>Analiza tu WhatsApp ahora</button>
-            <button onClick={() => scrollTo('reporte')} style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: 15, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: '14px 0' }}>Ver reporte de ejemplo →</button>
+            <a href="/reporte-ejemplo-deeplook.pdf" target="_blank" rel="noopener noreferrer" style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: 15, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: '14px 0' }}>Ver reporte de ejemplo →</a>
           </div>
           <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)' }}>Descubre en minutos por qué pierdes clientes — y cómo recuperarlos</p>
         </div>
@@ -588,11 +588,11 @@ const ReportPreviewSection = ({ onNavigate }) => {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <button onClick={() => onNavigate('signup')} style={{ background: 'white', color: '#0e0749', border: 'none', borderRadius: 8, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'transform 200ms, box-shadow 200ms' }}
+              <a href="/reporte-ejemplo-deeplook.pdf" download="reporte-ejemplo-deeplook.pdf" style={{ background: 'white', color: '#0e0749', border: 'none', borderRadius: 8, padding: '14px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'transform 200ms, box-shadow 200ms', textDecoration: 'none' }}
                 onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.03)';e.currentTarget.style.boxShadow='0 8px 32px rgba(255,255,255,0.15)'}}
                 onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=''}}>
                 <Icon name="download" size={16} color="#4f46e5" /> Descargar reporte de ejemplo
-              </button>
+              </a>
               <button onClick={() => scrollTo('precios')} style={{ background: 'transparent', color: 'white', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 8, padding: '14px 24px', fontSize: 15, fontWeight: 600, cursor: 'pointer', transition: 'border-color 200ms, background 200ms' }}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.6)';e.currentTarget.style.background='rgba(255,255,255,0.06)'}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.25)';e.currentTarget.style.background='transparent'}}>
