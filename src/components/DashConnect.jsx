@@ -674,16 +674,22 @@ const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
 const ExpiredCard = ({ onRetry, loading }) => {
   const [autoRetryDone, setAutoRetryDone] = useState(false);
   const triggeredRef = useRef(false);
+  // Keep onRetry in a ref so the auto-retry effect doesn't get a fresh closure
+  // (and re-run its cleanup) every time the parent re-creates handleConnect.
+  // Without this, parent re-renders during the 1.8s window cancel the setTimeout
+  // and the user is stuck on "Generando nuevo código…" forever.
+  const onRetryRef = useRef(onRetry);
+  useEffect(() => { onRetryRef.current = onRetry; }, [onRetry]);
 
   useEffect(() => {
-    if (loading || triggeredRef.current || autoRetryDone) return;
+    if (triggeredRef.current) return;
     triggeredRef.current = true;
     const t = setTimeout(() => {
-      onRetry();
+      onRetryRef.current?.();
       setAutoRetryDone(true);
     }, 1800);
     return () => clearTimeout(t);
-  }, [onRetry, loading, autoRetryDone]);
+  }, []);
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
