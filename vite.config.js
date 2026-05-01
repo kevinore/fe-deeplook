@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import prerender from '@prerenderer/rollup-plugin'
+import chromium from '@sparticuz/chromium'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -9,47 +10,55 @@ import { resolve } from 'node:path'
 const capturedRoutes = {}
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    prerender({
-      routes: ['/', '/precios', '/privacy', '/terms'],
-      renderer: '@prerenderer/renderer-puppeteer',
-      rendererOptions: {
-        renderAfterTime: 2500,
-        timeout: 30000,
-        maxConcurrentRoutes: 2,
-        injectProperty: '__PRERENDERING__',
-        inject: true,
-        launchOptions: {
-          headless: 'new',
-          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+export default defineConfig(async () => {
+  // @sparticuz/chromium ships a statically-linked Chromium binary that runs in
+  // minimal Linux environments (Vercel, AWS Lambda) where libnspr4/libnss are missing.
+  const executablePath = await chromium.executablePath()
+
+  return {
+    plugins: [
+      react(),
+      prerender({
+        routes: ['/', '/precios', '/privacy', '/terms'],
+        renderer: '@prerenderer/renderer-puppeteer',
+        rendererOptions: {
+          renderAfterTime: 2500,
+          timeout: 45000,
+          maxConcurrentRoutes: 1,
+          injectProperty: '__PRERENDERING__',
+          inject: true,
+          launchOptions: {
+            executablePath,
+            args: chromium.args,
+            headless: chromium.headless,
+            defaultViewport: chromium.defaultViewport,
+          },
+        },
+        postProcess(route) {
+          const canonical = `https://deeplookapp.com${route.route === '/' ? '/' : route.route}`
+          route.html = route.html.replace(
+            /<link rel="canonical"[^>]*\/?>/i,
+            `<link rel="canonical" href="${canonical}" />`
+          )
+          capturedRoutes[route.route] = route.html
+          return route
+        },
+      }),
+      {
+        name: 'write-prerendered-index',
+        apply: 'build',
+        closeBundle() {
+          const html = capturedRoutes['/']
+          if (!html) return
+          const outDir = resolve(process.cwd(), 'dist')
+          mkdirSync(outDir, { recursive: true })
+          writeFileSync(resolve(outDir, 'index.html'), html, 'utf8')
         },
       },
-      postProcess(route) {
-        const canonical = `https://deeplookapp.com${route.route === '/' ? '/' : route.route}`
-        route.html = route.html.replace(
-          /<link rel="canonical"[^>]*\/?>/i,
-          `<link rel="canonical" href="${canonical}" />`
-        )
-        capturedRoutes[route.route] = route.html
-        return route
-      },
-    }),
-    {
-      name: 'write-prerendered-index',
-      apply: 'build',
-      closeBundle() {
-        const html = capturedRoutes['/']
-        if (!html) return
-        const outDir = resolve(process.cwd(), 'dist')
-        mkdirSync(outDir, { recursive: true })
-        writeFileSync(resolve(outDir, 'index.html'), html, 'utf8')
-      },
+    ],
+    server: {
+      historyApiFallback: true,
+      allowedHosts: ['deeplookapp.com.ngrok.dev', 'localhost'],
     },
-  ],
-  server: {
-    historyApiFallback: true,
-    allowedHosts: ['deeplookapp.com.ngrok.dev', 'localhost'],
-  },
+  }
 })
