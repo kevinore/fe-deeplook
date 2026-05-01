@@ -667,20 +667,103 @@ const ConnectedCard = ({ connection, onSync, onUnlink, syncing, quota }) => {
 };
 
 /* ── FAILED ─────────────────────────────────────────────────── */
-const FailedCard = ({ onRetry, loading }) => (
-  <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
-    <div style={{ width: 64, height: 64, background: '#fee2e2', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-      <Icon name="x" size={28} color="#ef4444" />
+// Reframes the scary "session failed" state as the much more common (and harmless)
+// "QR code expired because nobody scanned it in time" — and self-recovers without
+// requiring the user to click anything. After one auto-retry attempt we stop and
+// show the manual button, so a genuine WAHA outage doesn't loop forever.
+const ExpiredCard = ({ onRetry, loading }) => {
+  const [autoRetryDone, setAutoRetryDone] = useState(false);
+  const triggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (loading || triggeredRef.current || autoRetryDone) return;
+    triggeredRef.current = true;
+    const t = setTimeout(() => {
+      onRetry();
+      setAutoRetryDone(true);
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [onRetry, loading, autoRetryDone]);
+
+  return (
+    <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
+      <style>{`
+        @keyframes expiredPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+        @keyframes expiredRing  { 0%{transform:scale(1);opacity:.4} 100%{transform:scale(1.8);opacity:0} }
+      `}</style>
+
+      {/* Friendly amber clock — never red, never an X */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+        <div style={{ position: 'relative', width: 80, height: 80 }}>
+          {[0, 0.6].map((delay, i) => (
+            <div key={i} style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              border: '2px solid #f59e0b',
+              animation: `expiredRing 2s ease-out ${delay}s infinite`,
+            }} />
+          ))}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg,#fef3c7,#fde68a)',
+            borderRadius: 22,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'expiredPulse 2.4s ease-in-out infinite',
+          }}>
+            <Icon name="clock" size={38} color="#b45309" />
+          </div>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: 22, fontWeight: 700, color: '#0e0749', marginBottom: 10, letterSpacing: '-0.01em' }}>
+        El código QR caducó
+      </h3>
+      <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.6)', lineHeight: 1.7, marginBottom: 28, maxWidth: 420, margin: '0 auto 28px' }}>
+        Es normal — los códigos QR de WhatsApp solo viven unos segundos por seguridad.
+        {!autoRetryDone && ' Estamos creando uno nuevo automáticamente.'}
+      </p>
+
+      {loading ? (
+        <div style={{
+          background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.15)',
+          borderRadius: 12, padding: '16px 22px',
+          maxWidth: 320, margin: '0 auto',
+          display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center',
+        }}>
+          <Spinner size={20} color="#4f46e5" />
+          <span style={{ fontSize: 14, color: '#0e0749', fontWeight: 600 }}>
+            Conectando con WhatsApp…
+          </span>
+        </div>
+      ) : !autoRetryDone ? (
+        <div style={{
+          background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.15)',
+          borderRadius: 12, padding: '14px 22px',
+          maxWidth: 320, margin: '0 auto 16px',
+          display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center',
+        }}>
+          <Spinner size={18} color="#4f46e5" />
+          <span style={{ fontSize: 14, color: '#0e0749', fontWeight: 600 }}>
+            Generando nuevo código…
+          </span>
+        </div>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.55)', marginBottom: 18 }}>
+            Toca el botón para crear un código nuevo.
+          </p>
+          <button
+            onClick={() => { triggeredRef.current = true; onRetry(); }}
+            disabled={loading}
+            className="btn-primary"
+            style={{ padding: '12px 32px', fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="refresh" size={16} color="white" />
+            Generar nuevo código
+          </button>
+        </>
+      )}
     </div>
-    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', marginBottom: 8 }}>La sesión falló</h3>
-    <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', marginBottom: 28 }}>
-      Hubo un error al conectar con WhatsApp. Por favor intenta de nuevo.
-    </p>
-    <button onClick={onRetry} disabled={loading} className="btn-primary" style={{ padding: '12px 36px', fontSize: 15, opacity: loading ? 0.7 : 1 }}>
-      {loading ? 'Reintentando…' : 'Reintentar'}
-    </button>
-  </div>
-);
+  );
+};
 
 /* ── Connection success modal ──────────────────────────────── */
 const ConnectedModal = ({ onGoToReports }) => (
@@ -1142,7 +1225,7 @@ const DashConnect = ({ client, connection: connectionProp, onConnectionUpdate, o
         />
       )}
 
-      {status === 'FAILED' && <FailedCard onRetry={handleConnect} loading={loading} />}
+      {status === 'FAILED' && <ExpiredCard onRetry={handleConnect} loading={loading} />}
 
       {isPersonalBlocked && (
         <PersonalAccountBlockedCard
