@@ -265,61 +265,170 @@ const StartingCard = () => {
 };
 
 /* ── SCAN_QR_CODE ───────────────────────────────────────────── */
-const QRCard = ({ qr }) => (
-  <div style={{ maxWidth: 720, margin: '0 auto' }}>
-    <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0e0749', marginBottom: 8, textAlign: 'center' }}>
-      Escanea el código QR
-    </h2>
-    <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.55)', textAlign: 'center', marginBottom: 32 }}>
-      El código se actualiza automáticamente cada 20 segundos.
-    </p>
-    <div className="qr-layout">
-      <style>{`.qr-layout { display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: center; } @media(max-width:640px){.qr-layout{grid-template-columns:1fr!important}}`}</style>
+// Total session lifetime before WAHA gives up and marks it FAILED.
+// This must stay ≤ WAHA's internal "QR refs" budget (~90-100s) so the timer
+// expires before the user sees an actual failure.
+const QR_SESSION_SECONDS = 90;
 
-      {/* Instructions */}
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#0e0749', marginBottom: 18 }}>Instrucciones</div>
-        {[
-          'Abre WhatsApp en tu teléfono',
-          'Ve a Ajustes → Dispositivos vinculados',
-          'Toca "Vincular un dispositivo"',
-          'Apunta la cámara al código QR',
-        ].map((step, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-            <div style={{ width: 28, height: 28, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: 13, flexShrink: 0 }}>
-              {i + 1}
-            </div>
-            <span style={{ fontSize: 14, color: '#0e0749', lineHeight: 1.55, paddingTop: 4 }}>{step}</span>
+const QRCard = ({ qr }) => {
+  const [secondsLeft, setSecondsLeft] = useState(QR_SESSION_SECONDS);
+  // Track which QR session this countdown belongs to. We only reset when the
+  // QR image actually changes (new session/restart) — not on every re-render.
+  const lastQrRef = useRef(null);
+
+  useEffect(() => {
+    if (!qr?.qr_base64) return;
+    if (lastQrRef.current === qr.qr_base64) return;
+    // Reset countdown only on first QR ever, or when a fresh QR arrives after
+    // expiration (which must be from a backend auto-restart since WAHA's session
+    // would have died by then). Don't reset on the regular 20s WAHA QR refresh —
+    // it's the same session and the 90s budget keeps ticking.
+    setSecondsLeft(prev => (prev === 0 || lastQrRef.current === null) ? QR_SESSION_SECONDS : prev);
+    lastQrRef.current = qr.qr_base64;
+  }, [qr?.qr_base64]);
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const tick = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(tick);
+  }, [secondsLeft <= 0]);
+
+  const isExpired = secondsLeft === 0;
+  const isUrgent = secondsLeft > 0 && secondsLeft <= 20;
+  const timerColor = isExpired ? '#ef4444' : isUrgent ? '#f59e0b' : '#22c55e';
+  const progressPct = (secondsLeft / QR_SESSION_SECONDS) * 100;
+
+  return (
+    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0e0749', marginBottom: 8, textAlign: 'center' }}>
+        Escanea el código QR
+      </h2>
+      <p style={{ fontSize: 15, color: 'rgba(14,7,73,0.55)', textAlign: 'center', marginBottom: 24 }}>
+        Tienes un tiempo limitado para escanear antes de que el código expire.
+      </p>
+
+      {/* Visible countdown */}
+      <div style={{
+        maxWidth: 460, margin: '0 auto 28px',
+        background: 'white',
+        border: `1px solid ${isExpired ? '#fecaca' : isUrgent ? '#fed7aa' : '#bbf7d0'}`,
+        borderRadius: 14,
+        padding: '14px 18px',
+        boxShadow: '0 2px 10px rgba(14,7,73,0.04)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Icon name="clock" size={16} color={timerColor} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#0e0749' }}>
+              {isExpired ? 'Generando nuevo código…' : 'Tiempo restante para escanear'}
+            </span>
           </div>
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
-          <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)' }}>Detectando scan automáticamente…</span>
+          <span style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 18, fontWeight: 700, color: timerColor,
+            fontVariantNumeric: 'tabular-nums',
+            transition: 'color 0.3s ease',
+          }}>
+            {String(Math.floor(secondsLeft / 60)).padStart(1, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
+          </span>
+        </div>
+        <div style={{ height: 5, background: '#f0f0f8', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${progressPct}%`,
+            background: timerColor,
+            borderRadius: 99,
+            transition: 'width 1s linear, background 0.3s ease',
+          }} />
         </div>
       </div>
 
-      {/* QR image */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 220, height: 220, background: '#f4f4f6', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #ededed', overflow: 'hidden' }}>
-          {qr?.qr_base64
-            ? <img src={qr.qr_base64} alt="QR Code" style={{ width: 200, height: 200, objectFit: 'contain' }} />
-            : <Spinner size={36} />
-          }
+      <div className="qr-layout">
+        <style>{`.qr-layout { display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: center; } @media(max-width:640px){.qr-layout{grid-template-columns:1fr!important}}`}</style>
+
+        {/* Instructions */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#0e0749', marginBottom: 18 }}>Instrucciones</div>
+          {[
+            'Abre WhatsApp en tu teléfono',
+            'Ve a Ajustes → Dispositivos vinculados',
+            'Toca "Vincular un dispositivo"',
+            'Apunta la cámara al código QR',
+          ].map((step, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 28, height: 28, background: '#4f46e5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: 13, flexShrink: 0 }}>
+                {i + 1}
+              </div>
+              <span style={{ fontSize: 14, color: '#0e0749', lineHeight: 1.55, paddingTop: 4 }}>{step}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
+            <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)' }}>Detectando scan automáticamente…</span>
+          </div>
         </div>
-        <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.4)', textAlign: 'center', maxWidth: 220, margin: 0 }}>
-          Se renueva cada 20 seg
+
+        {/* QR image */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            position: 'relative',
+            width: 220, height: 220,
+            background: '#f4f4f6', borderRadius: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `2px solid ${isExpired ? '#fecaca' : isUrgent ? '#fed7aa' : '#ededed'}`,
+            overflow: 'hidden',
+            transition: 'border-color 0.3s ease',
+          }}>
+            {qr?.qr_base64
+              ? <img src={qr.qr_base64} alt="QR Code" style={{
+                  width: 200, height: 200, objectFit: 'contain',
+                  filter: isExpired ? 'blur(6px) grayscale(0.4)' : 'none',
+                  opacity: isExpired ? 0.5 : 1,
+                  transition: 'filter 0.4s ease, opacity 0.4s ease',
+                }} />
+              : <Spinner size={36} />
+            }
+            {isExpired && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 10,
+                background: 'rgba(255,255,255,0.55)',
+                backdropFilter: 'blur(2px)',
+              }}>
+                <Spinner size={28} color="#4f46e5" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#0e0749' }}>
+                  Renovando código…
+                </span>
+              </div>
+            )}
+          </div>
+          <p style={{
+            fontSize: 12,
+            color: isUrgent ? '#b45309' : 'rgba(14,7,73,0.4)',
+            textAlign: 'center', maxWidth: 220, margin: 0,
+            fontWeight: isUrgent ? 600 : 400,
+            transition: 'color 0.3s ease',
+          }}>
+            {isExpired
+              ? 'Generando un código nuevo…'
+              : isUrgent
+                ? `¡Apresúrate! Quedan ${secondsLeft}s`
+                : 'El código se renueva automáticamente'}
+          </p>
+        </div>
+      </div>
+
+      {/* Disclaimer */}
+      <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 12, padding: '16px 20px', marginTop: 32 }}>
+        <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.6)', margin: 0, lineHeight: 1.65 }}>
+          <strong>Sobre la seguridad de tu cuenta</strong> — DeepLook se conecta como un dispositivo vinculado, igual que WhatsApp Web en tu computadora. Solo leemos conversaciones pasadas para generar el reporte; nunca enviamos mensajes y la conexión se apaga automáticamente entre reportes.
         </p>
       </div>
     </div>
-
-    {/* Disclaimer */}
-    <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 12, padding: '16px 20px', marginTop: 32 }}>
-      <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.6)', margin: 0, lineHeight: 1.65 }}>
-        <strong>Sobre la seguridad de tu cuenta</strong> — DeepLook se conecta como un dispositivo vinculado, igual que WhatsApp Web en tu computadora. Solo leemos conversaciones pasadas para generar el reporte; nunca enviamos mensajes y la conexión se apaga automáticamente entre reportes.
-      </p>
-    </div>
-  </div>
-);
+  );
+};
 
 /* ── Post-QR scan — verification in progress ───────────────── */
 const ScanVerifyingCard = () => {
