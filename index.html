@@ -1,16 +1,180 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-CO">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DeepLook — Tus Chats bajo la Lupa</title>
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Primary SEO -->
+    <title>DeepLook — Analítica de WhatsApp Business para MiPymes en Colombia</title>
+    <meta name="description" content="DeepLook analiza tus conversaciones de WhatsApp Business y te entrega reportes claros con las acciones exactas para vender más. Hecho para MiPymes colombianas. Sin instalaciones." />
+    <meta name="keywords" content="analítica WhatsApp Business, reportes WhatsApp, CRM WhatsApp Colombia, métricas WhatsApp MiPymes, análisis conversaciones WhatsApp, DeepLook" />
+    <meta name="author" content="DeepLook" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://deeplookapp.com/" />
+
+    <!-- Geo / language signals -->
+    <meta name="geo.region" content="CO" />
+    <meta name="geo.placename" content="Colombia" />
+    <meta http-equiv="content-language" content="es-CO" />
+
+    <!-- Open Graph (Facebook, WhatsApp link previews, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DeepLook" />
+    <meta property="og:title" content="DeepLook — Analítica de WhatsApp Business para MiPymes en Colombia" />
+    <meta property="og:description" content="Descubre lo que tus chats de WhatsApp no te están diciendo. Reportes con sentimiento, tiempos de respuesta y acciones concretas para vender más." />
+    <meta property="og:url" content="https://deeplookapp.com/" />
+    <meta property="og:image" content="https://deeplookapp.com/logo-horizontal-landing.png" />
+    <meta property="og:image:alt" content="DeepLook — Tus Chats bajo la Lupa" />
+    <meta property="og:locale" content="es_CO" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DeepLook — Analítica de WhatsApp Business para MiPymes" />
+    <meta name="twitter:description" content="Descubre lo que tus chats de WhatsApp no te están diciendo. Reportes en español con acciones concretas para vender más." />
+    <meta name="twitter:image" content="https://deeplookapp.com/logo-horizontal-landing.png" />
+
+    <!-- Favicon + assets -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/logo-horizontal-landing.png" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Structured data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "DeepLook",
+      "url": "https://deeplookapp.com/",
+      "logo": "https://deeplookapp.com/logo-horizontal-landing.png",
+      "description": "Plataforma de analítica de WhatsApp Business para micro y pequeñas empresas hispanohablantes, con foco en Colombia.",
+      "email": "contacto@deeplookapp.com",
+      "areaServed": { "@type": "Country", "name": "Colombia" },
+      "sameAs": []
+    }
+    </script>
+
+    <!-- Structured data: WebSite (with potential search action) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "DeepLook",
+      "alternateName": "DeepLook — Tus Chats bajo la Lupa",
+      "url": "https://deeplookapp.com/",
+      "inLanguage": "es-CO",
+      "publisher": { "@type": "Organization", "name": "DeepLook" }
+    }
+    </script>
+
+    <!-- Structured data: SoftwareApplication (Product + Offers) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "DeepLook",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "Analítica conversacional de WhatsApp Business: reportes con sentimiento, tiempos de respuesta, calidad de atención y recomendaciones accionables para vender más.",
+      "url": "https://deeplookapp.com/",
+      "image": "https://deeplookapp.com/logo-horizontal-landing.png",
+      "inLanguage": "es-CO",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Plan Basic",
+          "price": "160000",
+          "priceCurrency": "COP",
+          "description": "1 reporte/mes, 100 conversaciones por reporte, 30 días de historial.",
+          "url": "https://deeplookapp.com/precios",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Plan Plus",
+          "price": "250000",
+          "priceCurrency": "COP",
+          "description": "2 reportes/mes, 300 conversaciones por reporte, 90 días de historial, dashboard de tendencias.",
+          "url": "https://deeplookapp.com/precios",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Plan Enterprise",
+          "price": "400000",
+          "priceCurrency": "COP",
+          "description": "4 reportes/mes (semanales), 1.000 conversaciones por reporte, 180 días de historial, soporte dedicado.",
+          "url": "https://deeplookapp.com/precios",
+          "availability": "https://schema.org/InStock"
+        }
+      ],
+      "publisher": { "@type": "Organization", "name": "DeepLook" }
+    }
+    </script>
+
+    <!-- Structured data: FAQPage (mirrors the FAQ section on the landing) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Necesito conocimientos técnicos para usar DeepLook?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Solo necesitas crear tu cuenta, conectar tu número de WhatsApp Business escaneando un QR, y listo. El sistema sincroniza y analiza tus conversaciones automáticamente. El reporte está escrito en español claro, sin jerga técnica." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Mis conversaciones están seguras?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. La conexión a WhatsApp se hace a través de un servidor seguro dedicado a tu cuenta. Tus conversaciones se procesan de forma confidencial, se almacenan encriptadas, y nunca se comparten con terceros. Puedes desconectar y eliminar tus datos en cualquier momento." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo conecto mi WhatsApp?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Desde tu cuenta en DeepLook, ve a 'Conectar WhatsApp' y escanea el código QR con tu teléfono — igual que vinculas WhatsApp Web. El proceso tarda menos de 2 minutos y no requiere instalar ninguna app adicional." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cuántas conversaciones analiza DeepLook?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Depende de tu plan: Basic analiza hasta 100 conversaciones por reporte, Plus hasta 300, y Enterprise hasta 1.000. El sistema toma siempre las más recientes dentro del período de tu plan." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Puedo cancelar mi suscripción?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí, en cualquier momento, sin preguntas ni letra chica. Si cancelas, mantienes acceso hasta el final del período pagado." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Funciona para cualquier tipo de negocio?",
+          "acceptedAnswer": { "@type": "Answer", "text": "DeepLook está optimizado para MiPymes colombianas: clínicas, salones, tiendas, restaurantes, distribuidoras, asesorías, inmobiliarias, etc." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿En qué idioma está el reporte?",
+          "acceptedAnswer": { "@type": "Answer", "text": "100% en español colombiano. Los benchmarks están basados en estudios del mercado colombiano, no extranjeros." }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo pago?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Aceptamos tarjeta de crédito/débito (Visa, Mastercard), transferencia por Nequi o Bancolombia, y PSE. Todos los pagos se procesan de forma segura." }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="font-family: 'DM Sans', sans-serif; max-width: 720px; margin: 48px auto; padding: 24px; color: #0e0749; line-height: 1.7;">
+        <h1>DeepLook — Analítica de WhatsApp Business para MiPymes</h1>
+        <p>DeepLook analiza tus conversaciones de WhatsApp Business y te entrega reportes claros con las acciones exactas que debes tomar para vender más. Hecho para MiPymes colombianas.</p>
+        <p>Para usar DeepLook necesitas habilitar JavaScript en tu navegador. Si tienes preguntas, escríbenos a <a href="mailto:contacto@deeplookapp.com">contacto@deeplookapp.com</a>.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

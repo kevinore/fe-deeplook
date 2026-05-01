@@ -1,0 +1,55 @@
+# DeepLook robots.txt — https://deeplookapp.com
+# Public marketing pages are indexable; the authenticated app is not.
+
+User-agent: *
+Allow: /
+Allow: /precios
+Allow: /landing
+Allow: /privacy
+Allow: /terms
+Allow: /reporte-ejemplo-deeplook.pdf
+Disallow: /app/
+Disallow: /login
+Disallow: /signup
+Disallow: /sso-callback
+Disallow: /oauth-init
+Disallow: /pago-exitoso
+
+# AI / LLM crawlers — explicitly allowed for the public landing
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+Sitemap: https://deeplookapp.com/sitemap.xml

@@ -76,18 +76,19 @@ const App = () => {
       routerNavigate('/login', { replace: true });
   }, [isLoaded, isSignedIn, page]);
 
+  // Public, auth-independent pages render immediately so crawlers and pre-rendering
+  // capture real HTML instead of a blank page while Clerk's SDK is still loading.
+  if (page === 'landing' || page === 'landing_public') return <LandingPage onNavigate={navigate} />;
+  if (page === 'privacy' || page === 'terms') return <LegalPage page={page} onNavigate={navigate} />;
+
   if (!isLoaded) return null;
 
   // OAuth init/callback — must be accessible without auth (handles OAuth redirect)
   if (page === 'sso_callback') return <SSOCallback onNavigate={navigate} />;
   if (page === 'oauth_init') return <OAuthInit />;
 
-  // landing_public (/landing, /precios) — always visible, no auth redirect
-  if (page === 'landing_public') return <LandingPage onNavigate={navigate} />;
-  if (page === 'landing') return <LandingPage onNavigate={navigate} />;
   if (AUTH_PAGES.includes(page)) return <AuthPage mode={page} onNavigate={navigate} />;
   if (DASH_PAGES.includes(page)) return <Dashboard page={page} onNavigate={navigate} onLanding={() => routerNavigate('/landing')} />;
-  if (page === 'privacy' || page === 'terms') return <LegalPage page={page} onNavigate={navigate} />;
   if (page === 'payment_result') return <PaymentResult onNavigate={navigate} />;
   return <LandingPage onNavigate={navigate} />;
 };
