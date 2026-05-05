@@ -282,9 +282,228 @@ const CheckoutStep = ({ plan, session, onBack, loading, error }) => (
   </div>
 );
 
+/* ─── Trial code redemption ──────────────────────────────────────────── */
+
+const GiftIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 12 20 22 4 22 4 12" />
+    <rect x="2" y="7" width="20" height="5" />
+    <line x1="12" y1="22" x2="12" y2="7" />
+    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+  </svg>
+);
+
+const TrialCodeBox = ({ api, onRedeemed }) => {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(null);
+
+  const handleRedeem = async () => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.post('/api/v1/billing/redeem-trial', {
+        body: { code: trimmed },
+      });
+      setSuccess(data);
+      // Give the user a beat to read the success state, then close the modal.
+      setTimeout(() => onRedeemed?.(data), 1600);
+    } catch (err) {
+      setError(err.message || 'No pudimos canjear ese código.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div style={{
+        background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)',
+        border: '1.5px solid #86efac', borderRadius: 16,
+        padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 14,
+        boxShadow: '0 4px 16px rgba(34,197,94,0.12)',
+      }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: '50%',
+          background: '#10b981', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46', marginBottom: 2 }}>
+            ¡Código activado!
+          </div>
+          <div style={{ fontSize: 13, color: '#047857' }}>
+            Tu prueba del plan <strong style={{ textTransform: 'capitalize' }}>{success.plan}</strong> está activa por {success.duration_days} días.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="trial-code-card">
+      <style>{`
+        .trial-code-card {
+          background: linear-gradient(135deg, #f5f3ff 0%, #faf9ff 50%, #f0f0ff 100%);
+          border: 1.5px solid #ddd6fe;
+          border-radius: 16px;
+          padding: 20px 24px;
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(99,102,241,0.06);
+          transition: border-color 200ms, box-shadow 200ms;
+        }
+        .trial-code-card::before {
+          content: '';
+          position: absolute;
+          top: -40px; right: -40px;
+          width: 140px; height: 140px;
+          background: radial-gradient(circle, rgba(124,58,237,0.10) 0%, transparent 70%);
+          pointer-events: none;
+        }
+        .trial-code-card:focus-within {
+          border-color: #a78bfa;
+          box-shadow: 0 8px 28px rgba(99,102,241,0.16);
+        }
+        .trial-code-icon {
+          width: 44px; height: 44px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #6366f1, #7c3aed);
+          color: white;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          box-shadow: 0 6px 18px rgba(99,102,241,0.32);
+        }
+        .trial-code-text { flex: 1; min-width: 0; }
+        .trial-code-title {
+          font-size: 14px; font-weight: 700; color: #0e0749;
+          letter-spacing: -0.01em; margin-bottom: 2px;
+        }
+        .trial-code-sub {
+          font-size: 12.5px; color: rgba(14,7,73,0.55); line-height: 1.5;
+        }
+        .trial-code-form {
+          display: flex; gap: 8px; align-items: stretch;
+          flex-shrink: 0;
+        }
+        .trial-code-input {
+          width: 200px;
+          padding: 11px 14px;
+          border: 1.5px solid #ddd6fe;
+          border-radius: 10px;
+          background: white;
+          font-size: 14px;
+          font-weight: 600;
+          font-family: 'DM Sans', sans-serif;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #0e0749;
+          outline: none;
+          transition: border-color 150ms, box-shadow 150ms;
+        }
+        .trial-code-input::placeholder {
+          color: rgba(14,7,73,0.3);
+          font-weight: 500;
+          letter-spacing: 0.04em;
+        }
+        .trial-code-input:focus {
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+        .trial-code-btn {
+          background: linear-gradient(135deg, #6366f1, #7c3aed);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          padding: 0 22px;
+          font-size: 14px;
+          font-weight: 700;
+          font-family: 'DM Sans', sans-serif;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          box-shadow: 0 4px 14px rgba(99,102,241,0.32);
+          transition: transform 150ms, box-shadow 200ms, opacity 150ms;
+          white-space: nowrap;
+        }
+        .trial-code-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 22px rgba(99,102,241,0.42);
+        }
+        .trial-code-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+        .trial-code-error {
+          margin-top: 10px;
+          font-size: 12.5px;
+          color: #dc2626;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          padding: 8px 12px;
+          border-radius: 8px;
+        }
+        @media (max-width: 640px) {
+          .trial-code-card {
+            flex-direction: column;
+            align-items: stretch;
+            text-align: left;
+            gap: 14px;
+            padding: 18px;
+          }
+          .trial-code-form { flex-direction: column; gap: 8px; }
+          .trial-code-input { width: 100%; box-sizing: border-box; }
+          .trial-code-btn { padding: 12px; }
+        }
+      `}</style>
+
+      <div className="trial-code-icon">
+        <GiftIcon />
+      </div>
+
+      <div className="trial-code-text">
+        <div className="trial-code-title">¿Tienes un código de prueba?</div>
+        <div className="trial-code-sub">
+          Canjéalo y obtén acceso gratis al plan Básico — un reporte completo, sin tarjeta.
+        </div>
+        {error && <div className="trial-code-error">{error}</div>}
+      </div>
+
+      <div className="trial-code-form">
+        <input
+          type="text"
+          className="trial-code-input"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="TU-CÓDIGO"
+          disabled={loading}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleRedeem(); }}
+          aria-label="Código de prueba"
+        />
+        <button
+          type="button"
+          className="trial-code-btn"
+          onClick={handleRedeem}
+          disabled={loading || !code.trim()}
+        >
+          {loading ? 'Canjeando…' : 'Canjear'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Main modal ─────────────────────────────────────────────────────── */
 
-const PlanSelectionModal = ({ onClose, onPlanActivated }) => {
+const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
   const api = useApiClient();
   const [step, setStep] = useState('select'); // 'select' | 'checkout'
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -427,6 +646,15 @@ const PlanSelectionModal = ({ onClose, onPlanActivated }) => {
                 >
                   {selectedPlan ? `Continuar con ${selectedPlan.label} →` : 'Selecciona un plan'}
                 </button>
+              </div>
+
+              {/* Trial code redemption — sits between the CTA and the trust line,
+                  spans the full modal width to feel anchored, not orphaned */}
+              <div style={{ marginTop: 24 }}>
+                <TrialCodeBox
+                  api={api}
+                  onRedeemed={() => onTrialRedeemed?.()}
+                />
               </div>
 
               {/* Trust line */}

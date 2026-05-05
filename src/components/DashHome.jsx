@@ -517,30 +517,7 @@ const ReportRow = ({ job, onDownload, downloading, isLast }) => (
 
 // jobs: null = loading | [] = empty | [...] = list
 // latestResults: undefined = still loading | null = no results | object = results
-const FreePlanBanner = ({ onShowPlanModal }) => (
-  <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', borderRadius: 16, padding: '22px 28px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', boxShadow: '0 8px 32px rgba(79,70,229,0.28)' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
-        🔒
-      </div>
-      <div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: 'white', marginBottom: 3 }}>Activa tu plan para empezar a ver reportes</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
-          Estás en modo exploración gratuita. Elige un plan y obtén tu primer análisis de WhatsApp en minutos.
-        </div>
-      </div>
-    </div>
-    <button
-      onClick={onShowPlanModal}
-      style={{ background: 'white', color: '#4f46e5', border: 'none', borderRadius: 10, padding: '12px 26px', fontSize: 14, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', transition: 'transform 150ms, box-shadow 150ms', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.18)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)'; }}>
-      Ver planes →
-    </button>
-  </div>
-);
-
-const DashHome = ({ onNavigate, connection, jobs, latestResults, quota, onShowPlanModal }) => {
+const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
   const { user } = useUser();
   const api = useApiClient();
   const [downloadingId, setDownloadingId] = useState(null);
@@ -633,9 +610,6 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota, onShowPl
 
         <SyncCard connection={connection} />
       </div>
-
-      {/* Free-plan upgrade banner */}
-      {quota?.plan === 'free' && <FreePlanBanner onShowPlanModal={onShowPlanModal} />}
 
       {/* Quota panel */}
       {quota && quota.plan !== 'free' && <QuotaPanel quota={quota} onNavigate={onNavigate} />}

@@ -5,6 +5,7 @@ import { useApiClient } from '../lib/api';
 import OnboardingModal from './OnboardingModal';
 import PlanSelectionModal from './PlanSelectionModal';
 import RenewalBanner from './RenewalBanner';
+import FreePlanBanner from './FreePlanBanner';
 import { NotificationProvider } from './NotificationContext';
 import NotificationBell from './NotificationBell';
 import DashHome from './DashHome';
@@ -157,7 +158,45 @@ const SidebarUser = ({ onLanding }) => {
   );
 };
 
-const Sidebar = ({ page, onNavigate, onLanding, open, onClose }) => (
+const SidebarUpgradeCard = ({ onShowPlanModal }) => (
+  <div style={{ padding: '0 14px 14px' }}>
+    <button
+      type="button"
+      onClick={onShowPlanModal}
+      style={{
+        width: '100%',
+        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+        border: 'none', borderRadius: 12,
+        padding: '14px 14px',
+        cursor: 'pointer', textAlign: 'left',
+        display: 'flex', flexDirection: 'column', gap: 8,
+        boxShadow: '0 8px 24px rgba(79,70,229,0.35)',
+        transition: 'transform 150ms, box-shadow 200ms',
+        fontFamily: 'DM Sans, sans-serif',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(79,70,229,0.5)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 8px 24px rgba(79,70,229,0.35)'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 16 }}>✨</span>
+        <span style={{ color: 'white', fontWeight: 700, fontSize: 13 }}>Activa tu plan</span>
+      </div>
+      <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11.5, lineHeight: 1.4 }}>
+        Genera tu primer reporte con análisis IA en minutos.
+      </div>
+      <div style={{
+        marginTop: 4,
+        background: 'white', color: '#4f46e5',
+        borderRadius: 8, padding: '7px 10px',
+        fontSize: 12, fontWeight: 700, textAlign: 'center',
+      }}>
+        Ver planes →
+      </div>
+    </button>
+  </div>
+);
+
+const Sidebar = ({ page, onNavigate, onLanding, open, onClose, plan, onShowPlanModal }) => (
   <aside className={`dash-sidebar${open ? ' open' : ''}`}
     style={{ background: '#0e0749', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, zIndex: 50 }}>
     <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -187,30 +226,63 @@ const Sidebar = ({ page, onNavigate, onLanding, open, onClose }) => (
         );
       })}
     </nav>
+    {(plan === 'free' || !plan) && (
+      <SidebarUpgradeCard onShowPlanModal={() => { onShowPlanModal?.(); onClose?.(); }} />
+    )}
     <SidebarUser onLanding={onLanding} />
   </aside>
 );
 
-const TopBar = ({ page, onMenuOpen, client, onNavigate }) => (
-  <header className="dash-topbar"
-    style={{ position: 'fixed', top: 0, height: 68, background: 'white', borderBottom: '1px solid #ededed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', zIndex: 40 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      <button className="dash-hamburger" onClick={onMenuOpen}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#0e0749', display: 'flex', alignItems: 'center', borderRadius: 8, transition: 'background 200ms' }}
-        onMouseEnter={e => e.currentTarget.style.background = '#f4f3ff'}
-        onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-        <Icon name="menu" size={22} color="#0e0749" />
-      </button>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', letterSpacing: '-0.01em' }}>{PAGE_TITLES[page] || 'Dashboard'}</div>
-    </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <NotificationBell onNavigate={onNavigate} />
-      <div style={{ background: '#4f46e5', color: 'white', fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 999 }}>
-        {PLAN_LABELS[client?.plan] ?? 'Plan Gratis'}
+const TopBar = ({ page, onMenuOpen, client, onNavigate, onShowPlanModal }) => {
+  const isFree = !client?.plan || client.plan === 'free';
+  return (
+    <header className="dash-topbar"
+      style={{ position: 'fixed', top: 0, height: 68, background: 'white', borderBottom: '1px solid #ededed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', zIndex: 40 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button className="dash-hamburger" onClick={onMenuOpen}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#0e0749', display: 'flex', alignItems: 'center', borderRadius: 8, transition: 'background 200ms' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#f4f3ff'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+          <Icon name="menu" size={22} color="#0e0749" />
+        </button>
+        <div style={{ fontSize: 20, fontWeight: 700, color: '#0e0749', letterSpacing: '-0.01em' }}>{PAGE_TITLES[page] || 'Dashboard'}</div>
       </div>
-    </div>
-  </header>
-);
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <NotificationBell onNavigate={onNavigate} />
+        {isFree ? (
+          <button
+            type="button"
+            onClick={onShowPlanModal}
+            style={{
+              background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
+              color: 'white',
+              border: 'none',
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '7px 14px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+              letterSpacing: '-0.01em',
+              boxShadow: '0 4px 14px rgba(79,70,229,0.35)',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              transition: 'transform 150ms, box-shadow 200ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(79,70,229,0.45)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 14px rgba(79,70,229,0.35)'; }}
+          >
+            <span style={{ fontSize: 13 }}>✨</span>
+            Activar plan
+          </button>
+        ) : (
+          <div style={{ background: '#4f46e5', color: 'white', fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 999 }}>
+            {PLAN_LABELS[client?.plan] ?? 'Plan Gratis'}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
 
 const LoadingMain = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 320 }}>
@@ -311,14 +383,40 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
             setClient(updatedClient);
             setShowPlanModal(false);
           }}
+          onTrialRedeemed={() => {
+            api.get('/api/v1/clients')
+              .then((clients) => setClient(clients[0] ?? false))
+              .catch(() => {});
+            refreshQuota();
+            setShowPlanModal(false);
+          }}
         />
       )}
 
       <div className={`dash-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
-      <Sidebar page={page} onNavigate={onNavigate} onLanding={onLanding} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        page={page}
+        onNavigate={onNavigate}
+        onLanding={onLanding}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        plan={client?.plan}
+        onShowPlanModal={() => setShowPlanModal(true)}
+      />
       <div className="dash-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0 }}>
-        <TopBar page={page} onMenuOpen={() => setSidebarOpen(true)} client={client || null} onNavigate={onNavigate} />
+        <TopBar
+          page={page}
+          onMenuOpen={() => setSidebarOpen(true)}
+          client={client || null}
+          onNavigate={onNavigate}
+          onShowPlanModal={() => setShowPlanModal(true)}
+        />
         <RenewalBanner quota={quota} onRenew={() => setShowPlanModal(true)} />
+        {/* Persistent free-plan strip — only when there's no renewal urgency,
+            since the renewal banner implies an active paid plan. */}
+        {(!quota?.renewal_urgency || quota.renewal_urgency === 'ok') && (
+          <FreePlanBanner plan={client?.plan} onUpgrade={() => setShowPlanModal(true)} />
+        )}
         <main style={{ marginTop: 68, flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {renderPage()}
         </main>
