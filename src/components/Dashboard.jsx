@@ -55,7 +55,10 @@ const WA_SVG = (
   </svg>
 );
 
-const DashWhatsAppButton = () => (
+const DashWhatsAppButton = () => {
+  const [bubbleOpen, setBubbleOpen] = useState(true);
+
+  return (
   <>
     <style>{`
       @keyframes dashWaPulse {
@@ -71,11 +74,18 @@ const DashWhatsAppButton = () => (
       .dash-wa-widget { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
       .dash-wa-bubble {
         background: white; border-radius: 18px 18px 4px 18px;
-        padding: 16px 20px; box-shadow: 0 8px 32px rgba(14,7,73,0.15);
+        padding: 14px 16px; box-shadow: 0 8px 32px rgba(14,7,73,0.15);
         max-width: 270px; border: 1px solid #ededed;
         animation: pageFade 400ms ease;
       }
-      .dash-wa-bubble-name { font-size: 14px; font-weight: 700; color: #0e0749; font-family: 'DM Sans',sans-serif; margin-bottom: 4px; }
+      .dash-wa-bubble-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+      .dash-wa-bubble-name { font-size: 14px; font-weight: 700; color: #0e0749; font-family: 'DM Sans',sans-serif; }
+      .dash-wa-bubble-close {
+        background: none; border: none; cursor: pointer; padding: 2px; flex-shrink: 0;
+        color: rgba(14,7,73,0.3); border-radius: 4px; display: flex; align-items: center;
+        transition: color 150ms, background 150ms;
+      }
+      .dash-wa-bubble-close:hover { color: rgba(14,7,73,0.65); background: rgba(14,7,73,0.06); }
       .dash-wa-bubble-text { font-size: 13px; color: rgba(14,7,73,0.65); font-family: 'DM Sans',sans-serif; line-height: 1.6; }
       .dash-wa-bubble-dot  { display: inline-flex; gap: 3px; margin-top: 6px; }
       .dash-wa-bubble-dot span { width: 7px; height: 7px; background: #25d366; border-radius: 50%; animation: dashWaBounce 1.2s ease infinite; }
@@ -94,18 +104,41 @@ const DashWhatsAppButton = () => (
       .dash-wa-pill-text strong { font-size: 14px; font-weight: 700; color: white; font-family: 'DM Sans',sans-serif; line-height: 1.2; display: block; }
       .dash-wa-pill-text span   { font-size: 11px; color: rgba(255,255,255,0.8); font-family: 'DM Sans',sans-serif; }
       .dash-wa-status { width: 9px; height: 9px; background: white; border-radius: 50%; position: absolute; top: 10px; right: 10px; box-shadow: 0 0 0 2px #25d366; }
+      @media (max-width: 900px) {
+        .dash-wa-bubble { padding: 10px 13px; max-width: 220px; }
+        .dash-wa-bubble-name { font-size: 13px; }
+        .dash-wa-bubble-text { font-size: 12px; }
+      }
       @media (max-width: 640px) {
         .dash-wa-widget { bottom: 16px; right: 16px; }
-        .dash-wa-pill   { padding: 11px 16px 11px 12px; gap: 10px; }
+        .dash-wa-bubble { display: none; }
+        .dash-wa-pill   { padding: 14px; gap: 0; border-radius: 50%; }
+        .dash-wa-pill-text { display: none; }
+        .dash-wa-status { top: 8px; right: 8px; }
+      }
+      @media (max-height: 720px) {
         .dash-wa-bubble { display: none; }
       }
     `}</style>
     <div className="dash-wa-widget">
-      <div className="dash-wa-bubble">
-        <div className="dash-wa-bubble-name">¿Necesitas ayuda? 💬</div>
-        <div className="dash-wa-bubble-text">Escríbenos por WhatsApp y te respondemos en minutos.</div>
-        <div className="dash-wa-bubble-dot"><span /><span /><span /></div>
-      </div>
+      {bubbleOpen && (
+        <div className="dash-wa-bubble">
+          <div className="dash-wa-bubble-header">
+            <div className="dash-wa-bubble-name">¿Necesitas ayuda? 💬</div>
+            <button
+              className="dash-wa-bubble-close"
+              onClick={() => setBubbleOpen(false)}
+              aria-label="Cerrar"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className="dash-wa-bubble-text">Escríbenos por WhatsApp y te respondemos en minutos.</div>
+          <div className="dash-wa-bubble-dot"><span /><span /><span /></div>
+        </div>
+      )}
       <a href={`https://wa.me/${DASH_WA_NUMBER}?text=${DASH_WA_MESSAGE}`}
         target="_blank" rel="noopener noreferrer"
         className="dash-wa-pill" aria-label="Soporte por WhatsApp">
@@ -119,7 +152,8 @@ const DashWhatsAppButton = () => (
       </a>
     </div>
   </>
-);
+  );
+};
 
 const getDisplayName = (user) => {
   if (!user) return '…';

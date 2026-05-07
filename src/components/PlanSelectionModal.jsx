@@ -1,6 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApiClient } from '../lib/api';
 import { DeepLookLogo } from './Icons';
+
+/* ─── Compact-height detection ───────────────────────────────────────── */
+// Fires when the viewport is short enough that normal plan cards + footer
+// would overflow. Threshold chosen to cover 11–13" laptops (768–800px screens).
+const useCompactMode = () => {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.innerHeight < 780
+  );
+  useEffect(() => {
+    const update = () => setCompact(window.innerHeight < 780);
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return compact;
+};
 
 /* ─── Plan definitions (mirror backend PLAN_DISPLAY) ─────────────────── */
 const PLANS = [
@@ -139,7 +154,7 @@ const WompiButton = ({ session, plan }) => {
 
 /* ─── Step 1 — Plan cards ────────────────────────────────────────────── */
 
-const PlanCard = ({ plan, selected, onSelect, loading }) => {
+const PlanCard = ({ plan, selected, onSelect, loading, compact }) => {
   const isSelected = selected?.key === plan.key;
   return (
     <div
@@ -147,7 +162,7 @@ const PlanCard = ({ plan, selected, onSelect, loading }) => {
       style={{
         border: isSelected ? `2px solid ${plan.accentColor}` : '2px solid #e5e7eb',
         borderRadius: 16,
-        padding: '24px 20px',
+        padding: compact ? '12px 14px' : '24px 20px',
         background: isSelected ? plan.bgGradient : 'white',
         cursor: loading ? 'default' : 'pointer',
         transition: 'border-color 200ms, transform 150ms, box-shadow 200ms',
@@ -163,31 +178,34 @@ const PlanCard = ({ plan, selected, onSelect, loading }) => {
     >
       {plan.badge && (
         <div style={{
-          position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', top: compact ? -10 : -12, left: '50%', transform: 'translateX(-50%)',
           background: plan.accentColor, color: 'white',
-          fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999,
+          fontSize: compact ? 10 : 11, fontWeight: 700,
+          padding: compact ? '3px 10px' : '4px 12px', borderRadius: 999,
           letterSpacing: '0.04em', whiteSpace: 'nowrap',
         }}>
           {plan.badge}
         </div>
       )}
 
-      <div style={{ marginBottom: 4, fontSize: 13, fontWeight: 600, color: plan.accentColor, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+      <div style={{ marginBottom: 2, fontSize: compact ? 11 : 13, fontWeight: 600, color: plan.accentColor, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
         {plan.label}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: 6 }}>
-        <span style={{ fontSize: 28, fontWeight: 800, color: '#0e0749', letterSpacing: '-0.03em' }}>{plan.price}</span>
-        <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.45)', fontWeight: 400 }}>{plan.period}</span>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 2, marginBottom: compact ? 4 : 6 }}>
+        <span style={{ fontSize: compact ? 22 : 28, fontWeight: 800, color: '#0e0749', letterSpacing: '-0.03em' }}>{plan.price}</span>
+        <span style={{ fontSize: compact ? 11 : 13, color: 'rgba(14,7,73,0.45)', fontWeight: 400 }}>{plan.period}</span>
       </div>
-      <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.55)', lineHeight: 1.55, marginBottom: 18 }}>
-        {plan.description}
-      </div>
+      {!compact && (
+        <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.55)', lineHeight: 1.55, marginBottom: 18 }}>
+          {plan.description}
+        </div>
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
-        {plan.features.map((f, i) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 6 : 9, flex: 1 }}>
+        {plan.features.slice(0, compact ? 4 : plan.features.length).map((f, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {f.active ? <CheckIcon color={plan.accentColor} /> : <CrossIcon />}
-            <span style={{ fontSize: 13, color: f.active ? '#0e0749' : '#9ca3af', fontWeight: f.active ? 500 : 400 }}>
+            <span style={{ fontSize: compact ? 12 : 13, color: f.active ? '#0e0749' : '#9ca3af', fontWeight: f.active ? 500 : 400 }}>
               {f.text}
             </span>
           </div>
@@ -195,11 +213,13 @@ const PlanCard = ({ plan, selected, onSelect, loading }) => {
       </div>
 
       <div style={{
-        marginTop: 20, padding: '10px 0', borderRadius: 10, textAlign: 'center',
+        marginTop: compact ? 10 : 20,
+        padding: compact ? '7px 0' : '10px 0',
+        borderRadius: 10, textAlign: 'center',
         background: isSelected ? plan.accentColor : 'transparent',
         border: isSelected ? 'none' : `1.5px solid ${plan.accentColor}`,
         color: isSelected ? 'white' : plan.accentColor,
-        fontSize: 13, fontWeight: 700,
+        fontSize: compact ? 12 : 13, fontWeight: 700,
         transition: 'background 200ms, color 200ms',
       }}>
         {isSelected ? '✓ Seleccionado' : 'Seleccionar'}
@@ -294,7 +314,7 @@ const GiftIcon = () => (
   </svg>
 );
 
-const TrialCodeBox = ({ api, onRedeemed }) => {
+const TrialCodeBox = ({ api, onRedeemed, compact }) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -350,7 +370,7 @@ const TrialCodeBox = ({ api, onRedeemed }) => {
   }
 
   return (
-    <div className="trial-code-card">
+    <div className={`trial-code-card${compact ? ' trial-code-compact' : ''}`}>
       <style>{`
         .trial-code-card {
           background: linear-gradient(135deg, #f5f3ff 0%, #faf9ff 50%, #f0f0ff 100%);
@@ -463,6 +483,18 @@ const TrialCodeBox = ({ api, onRedeemed }) => {
           .trial-code-input { width: 100%; box-sizing: border-box; }
           .trial-code-btn { padding: 12px; }
         }
+        .trial-code-compact {
+          padding: 12px 16px !important;
+          gap: 12px !important;
+        }
+        .trial-code-compact .trial-code-sub { display: none !important; }
+        .trial-code-compact .trial-code-icon {
+          width: 36px !important; height: 36px !important;
+          border-radius: 10px !important;
+        }
+        .trial-code-compact .trial-code-title { font-size: 13px !important; margin-bottom: 0 !important; }
+        .trial-code-compact .trial-code-input { width: 160px !important; padding: 9px 12px !important; font-size: 13px !important; }
+        .trial-code-compact .trial-code-btn { padding: 0 16px !important; font-size: 13px !important; }
       `}</style>
 
       <div className="trial-code-icon">
@@ -505,6 +537,7 @@ const TrialCodeBox = ({ api, onRedeemed }) => {
 
 const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
   const api = useApiClient();
+  const compact = useCompactMode();
   const [step, setStep] = useState('select'); // 'select' | 'checkout'
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [session, setSession] = useState(null);
@@ -554,6 +587,13 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
         @media (max-width: 780px) {
           .plan-modal-grid { grid-template-columns: 1fr; }
         }
+        .plan-scroll-area {
+          scrollbar-width: thin;
+          scrollbar-color: #e5e7eb transparent;
+        }
+        .plan-scroll-area::-webkit-scrollbar { width: 4px; }
+        .plan-scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .plan-scroll-area::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 4px; }
       `}</style>
 
       {/* Backdrop */}
@@ -568,7 +608,7 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
           padding: 16,
         }}
       >
-        {/* Card */}
+        {/* Card — flex column so the footer is always anchored at the bottom */}
         <div
           onClick={e => e.stopPropagation()}
           style={{
@@ -577,103 +617,125 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
             width: '100%',
             maxWidth: step === 'select' ? 900 : 520,
             maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '36px 40px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             boxShadow: '0 32px 100px rgba(14,7,73,0.25)',
             animation: 'modalSlideIn 300ms cubic-bezier(0.16,1,0.3,1)',
             transition: 'max-width 350ms ease',
           }}
         >
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: step === 'select' ? 8 : 24 }}>
-            <DeepLookLogo size="sm" dark />
-            {onClose && (
-              <button
-                onClick={onClose}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'rgba(14,7,73,0.4)', borderRadius: 8 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f4f3ff'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            )}
+          {/* Header — never scrolls */}
+          <div style={{ padding: compact ? '16px 28px 0' : '28px 36px 0', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: step === 'select' ? 0 : 20 }}>
+              <DeepLookLogo size="sm" dark />
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'rgba(14,7,73,0.4)', borderRadius: 8 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f4f3ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           {step === 'select' && (
             <>
-              <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <h2 style={{ fontSize: 26, fontWeight: 800, color: '#0e0749', letterSpacing: '-0.03em', marginBottom: 8 }}>
-                  Elige tu plan
-                </h2>
-                <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', lineHeight: 1.6, maxWidth: 480, margin: '0 auto' }}>
-                  Todos los planes incluyen análisis IA completo y reporte PDF descargable.<br />
-                  Cancela cuando quieras, sin compromisos.
-                </p>
+              {/* Plan cards — scrolls only if compact mode still overflows (rare) */}
+              <div
+                className="plan-scroll-area"
+                style={{ flex: 1, overflowY: 'auto', padding: compact ? '10px 28px 4px' : '16px 36px 4px', minHeight: 0 }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: compact ? 12 : 24 }}>
+                  <h2 style={{ fontSize: compact ? 20 : 26, fontWeight: 800, color: '#0e0749', letterSpacing: '-0.03em', marginBottom: compact ? 0 : 8 }}>
+                    Elige tu plan
+                  </h2>
+                  {!compact && (
+                    <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', lineHeight: 1.6, maxWidth: 480, margin: '0 auto' }}>
+                      Todos los planes incluyen análisis IA completo y reporte PDF descargable.<br />
+                      Cancela cuando quieras, sin compromisos.
+                    </p>
+                  )}
+                </div>
+
+                <div className="plan-modal-grid" style={{ marginBottom: compact ? 4 : 8 }}>
+                  {PLANS.map(plan => (
+                    <PlanCard
+                      key={plan.key}
+                      plan={plan}
+                      selected={selectedPlan}
+                      onSelect={handleSelectPlan}
+                      loading={loading}
+                      compact={compact}
+                    />
+                  ))}
+                </div>
               </div>
 
-              <div className="plan-modal-grid" style={{ marginBottom: 28 }}>
-                {PLANS.map(plan => (
-                  <PlanCard
-                    key={plan.key}
-                    plan={plan}
-                    selected={selectedPlan}
-                    onSelect={handleSelectPlan}
-                    loading={loading}
+              {/* Sticky footer — always visible regardless of screen height */}
+              <div style={{ flexShrink: 0, padding: compact ? '10px 28px 14px' : '16px 36px 24px', borderTop: '1px solid #f3f4f6' }}>
+                <div style={{ marginBottom: compact ? 10 : 16 }}>
+                  <TrialCodeBox
+                    api={api}
+                    onRedeemed={() => onTrialRedeemed?.()}
+                    compact={compact}
                   />
-                ))}
-              </div>
+                </div>
 
-              {/* CTA row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                <button
-                  onClick={onClose}
-                  style={{ background: 'none', border: 'none', color: 'rgba(14,7,73,0.45)', fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: '8px 0' }}
-                >
-                  Más tarde — explorar gratis
-                </button>
-                <button
-                  onClick={handleContinue}
-                  disabled={!selectedPlan || loading}
-                  className="btn-primary"
-                  style={{
-                    padding: '13px 32px', fontSize: 15, fontWeight: 700, borderRadius: 12,
-                    opacity: selectedPlan ? 1 : 0.4,
-                    cursor: selectedPlan ? 'pointer' : 'not-allowed',
-                    minWidth: 200,
-                  }}
-                >
-                  {selectedPlan ? `Continuar con ${selectedPlan.label} →` : 'Selecciona un plan'}
-                </button>
-              </div>
+                {/* CTA row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={onClose}
+                    style={{ background: 'none', border: 'none', color: 'rgba(14,7,73,0.45)', fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: '6px 0' }}
+                  >
+                    Más tarde — explorar gratis
+                  </button>
+                  <button
+                    onClick={handleContinue}
+                    disabled={!selectedPlan || loading}
+                    className="btn-primary"
+                    style={{
+                      padding: compact ? '11px 28px' : '13px 32px',
+                      fontSize: compact ? 14 : 15, fontWeight: 700, borderRadius: 12,
+                      opacity: selectedPlan ? 1 : 0.4,
+                      cursor: selectedPlan ? 'pointer' : 'not-allowed',
+                      minWidth: compact ? 180 : 200,
+                    }}
+                  >
+                    {selectedPlan ? `Continuar con ${selectedPlan.label} →` : 'Selecciona un plan'}
+                  </button>
+                </div>
 
-              {/* Trial code redemption — sits between the CTA and the trust line,
-                  spans the full modal width to feel anchored, not orphaned */}
-              <div style={{ marginTop: 24 }}>
-                <TrialCodeBox
-                  api={api}
-                  onRedeemed={() => onTrialRedeemed?.()}
-                />
-              </div>
-
-              {/* Trust line */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginTop: 20, flexWrap: 'wrap' }}>
-                {['🔒 Pago seguro', '🇨🇴 Paga en pesos', '↩ Cancela fácil'].map(t => (
-                  <span key={t} style={{ fontSize: 12, color: 'rgba(14,7,73,0.4)' }}>{t}</span>
-                ))}
+                {/* Trust line — hidden on compact screens to save vertical space */}
+                {!compact && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
+                    {['🔒 Pago seguro', '🇨🇴 Paga en pesos', '↩ Cancela fácil'].map(t => (
+                      <span key={t} style={{ fontSize: 12, color: 'rgba(14,7,73,0.4)' }}>{t}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
 
           {step === 'checkout' && selectedPlan && (
-            <CheckoutStep
-              plan={selectedPlan}
-              session={session}
-              onBack={handleBack}
-              loading={loading}
-              error={error}
-            />
+            <div
+              className="plan-scroll-area"
+              style={{ flex: 1, overflowY: 'auto', padding: '0 36px 36px', minHeight: 0 }}
+            >
+              <CheckoutStep
+                plan={selectedPlan}
+                session={session}
+                onBack={handleBack}
+                loading={loading}
+                error={error}
+              />
+            </div>
           )}
         </div>
       </div>
