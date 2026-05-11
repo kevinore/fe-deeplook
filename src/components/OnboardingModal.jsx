@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useUser } from '@clerk/react';
 import { useApiClient } from '../lib/api';
-import { DeepLookLogo } from './Icons';
+import PlanSelectionModal from './PlanSelectionModal';
 
 const BUSINESS_TYPES = [
   'Restaurante / Alimentación',
@@ -83,6 +83,9 @@ const OnboardingModal = ({ onComplete }) => {
   const { user } = useUser();
   const api = useApiClient();
 
+  const [step, setStep] = useState('form'); // 'form' | 'plan'
+  const [createdClient, setCreatedClient] = useState(null);
+
   const [form, setForm] = useState({
     businessName: '',
     businessType: '',
@@ -123,13 +126,18 @@ const OnboardingModal = ({ onComplete }) => {
           policies_accepted: true,
         },
       });
-      onComplete(client);
+      setCreatedClient(client);
+      setStep('plan');
     } catch (err) {
-      // 409 means this email already has a client — fetch it instead of showing an error
+      // 409 means this email already has a client — move to plan step
       if (err.status === 409) {
         try {
           const clients = await api.get('/api/v1/clients');
-          if (clients?.[0]) { onComplete(clients[0]); return; }
+          if (clients?.[0]) {
+            setCreatedClient(clients[0]);
+            setStep('plan');
+            return;
+          }
         } catch {
           // fall through to generic error
         }
@@ -139,6 +147,18 @@ const OnboardingModal = ({ onComplete }) => {
       setLoading(false);
     }
   };
+
+  // Plan step: render PlanSelectionModal on top (zIndex 300 > form zIndex 200)
+  // "skip" and trial-redeemed both call onComplete so Dashboard closes the modal.
+  if (step === 'plan' && createdClient) {
+    return (
+      <PlanSelectionModal
+        onClose={() => onComplete(createdClient)}
+        onTrialRedeemed={() => onComplete(createdClient)}
+        stepBadge="Paso 2 de 2"
+      />
+    );
+  }
 
   return (
     <div style={{

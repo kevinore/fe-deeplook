@@ -331,8 +331,8 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // null = loading, false = no client yet, object = client profile
   const [client, setClient] = useState(null);
-  // undefined = loading, null = no connection, object = connection
-  const [connection, setConnection] = useState(undefined);
+  // undefined = loading, [] = no connections, [...] = connections list
+  const [connections, setConnections] = useState(undefined);
   // null = loading, [] = no jobs, [...] = jobs list
   const [jobs, setJobs] = useState(null);
   // undefined = still fetching (wait for jobs first), null = no results, object = latest results
@@ -355,8 +355,8 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
       .catch(() => setClient(false));
 
     api.get('/api/v1/whatsapp/connections')
-      .then((conns) => setConnection(conns[0] ?? null))
-      .catch(() => setConnection(null));
+      .then((conns) => setConnections(Array.isArray(conns) ? conns : []))
+      .catch(() => setConnections([]));
 
     api.get('/api/v1/jobs')
       .then(data => {
@@ -384,14 +384,15 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
   const renderPage = () => {
     if (client === null) return <LoadingMain />;
     switch (page) {
-      case 'dashboard': return <DashHome onNavigate={onNavigate} connection={connection} jobs={jobs} latestResults={latestResults} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
-      case 'connect':   return <DashConnect client={client || null} connection={connection} onConnectionUpdate={setConnection} onNavigate={onNavigate} quota={quota} onQuotaRefresh={refreshQuota} />;
+      // Keep backward compat: most pages receive `connection` (first item) as they only need one
+      case 'dashboard': return <DashHome onNavigate={onNavigate} connection={connections?.[0] ?? null} jobs={jobs} latestResults={latestResults} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
+      case 'connect':   return <DashConnect connections={connections ?? []} onConnectionsChange={setConnections} onNavigate={onNavigate} quota={quota} />;
       case 'upload':    return <DashUpload clientId={client ? client.id : null} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
       case 'reports':   return <DashReports onNavigate={onNavigate} jobs={jobs} onJobsUpdate={setJobs} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
       case 'trends':    return <DashTrends plan={client?.plan} onNavigate={onNavigate} onShowPlanModal={() => setShowPlanModal(true)} />;
-      case 'settings':  return <DashSettings client={client || null} onClientUpdate={setClient} connection={connection} onConnectionUpdate={setConnection} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
+      case 'settings':  return <DashSettings client={client || null} onClientUpdate={setClient} connections={connections ?? []} onConnectionsChange={setConnections} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
       case 'help':      return <DashHelp />;
-      default:          return <DashHome onNavigate={onNavigate} connection={connection} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
+      default:          return <DashHome onNavigate={onNavigate} connection={connections?.[0] ?? null} quota={quota} onShowPlanModal={() => setShowPlanModal(true)} />;
     }
   };
 

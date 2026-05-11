@@ -20,11 +20,9 @@ const useCompactMode = () => {
 /* ─── Plan definitions (mirror backend PLAN_DISPLAY) ─────────────────── */
 const PLANS = [
   {
-    key: 'basic',
-    label: 'Básico',
-    price: '$160.000',
-    period: '/mes',
-    description: 'Visibilidad mensual de tu WhatsApp Business.',
+    key: 'basic', label: 'Básico', price: '$160.000', priceNum: 160_000,
+    connectionsIncluded: 1, extraPrice: 120_000,
+    period: '/mes', description: 'Visibilidad mensual de tu WhatsApp Business.',
     badge: null,
     features: [
       { text: '1 reporte al mes', active: true },
@@ -40,11 +38,9 @@ const PLANS = [
     bgGradient: 'linear-gradient(135deg, #f0f0ff 0%, #fafafe 100%)',
   },
   {
-    key: 'plus',
-    label: 'Plus',
-    price: '$250.000',
-    period: '/mes',
-    description: 'Detecta cambios a mitad de mes y analiza más volumen.',
+    key: 'plus', label: 'Plus', price: '$250.000', priceNum: 250_000,
+    connectionsIncluded: 1, extraPrice: 180_000,
+    period: '/mes', description: 'Detecta cambios a mitad de mes y analiza más volumen.',
     badge: 'Más popular',
     features: [
       { text: '2 reportes al mes', active: true },
@@ -60,11 +56,9 @@ const PLANS = [
     bgGradient: 'linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%)',
   },
   {
-    key: 'enterprise',
-    label: 'Enterprise',
-    price: '$400.000',
-    period: '/mes',
-    description: 'Visibilidad semanal para negocios de alto volumen.',
+    key: 'enterprise', label: 'Enterprise', price: '$400.000', priceNum: 400_000,
+    connectionsIncluded: 2, extraPrice: 150_000,
+    period: '/mes', description: 'Visibilidad semanal para negocios de alto volumen.',
     badge: null,
     features: [
       { text: '4 reportes al mes', active: true },
@@ -131,6 +125,9 @@ const buildWompiUrl = (session) => {
 const WompiButton = ({ session, plan }) => {
   if (!session) return null;
   const url = buildWompiUrl(session);
+  // Use price_cop (real COP display price) — amount_in_cents is the Wompi staging/prod amount
+  // and should NOT be divided by 100 for display since staging uses reduced amounts.
+  const totalCOP = (session.price_cop ?? Math.round(session.amount_in_cents / 100)).toLocaleString('es-CO');
   return (
     <a
       href={url}
@@ -147,7 +144,7 @@ const WompiButton = ({ session, plan }) => {
       onMouseEnter={e => { e.currentTarget.style.opacity = '0.92'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
       onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = ''; }}
     >
-      Pagar {plan.price} con Wompi →
+      Pagar ${totalCOP} COP con Wompi →
     </a>
   );
 };
@@ -230,77 +227,83 @@ const PlanCard = ({ plan, selected, onSelect, loading, compact }) => {
 
 /* ─── Step 2 — Checkout confirmation ─────────────────────────────────── */
 
-const CheckoutStep = ({ plan, session, onBack, loading, error }) => (
-  <div style={{ animation: 'pageFade 250ms ease' }}>
-    <button onClick={onBack} style={{
-      background: 'none', border: 'none', color: 'rgba(14,7,73,0.5)',
-      fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-      fontFamily: 'DM Sans, sans-serif', padding: '0 0 20px',
-    }}>
-      ← Cambiar plan
-    </button>
+const CheckoutStep = ({ plan, session, onBack, loading, error, extraConns }) => {
+  const totalConns = plan.connectionsIncluded + extraConns;
+  return (
+    <div style={{ animation: 'pageFade 250ms ease' }}>
+      <button onClick={onBack} style={{
+        background: 'none', border: 'none', color: 'rgba(14,7,73,0.5)',
+        fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+        fontFamily: 'DM Sans, sans-serif', padding: '0 0 20px',
+      }}>
+        ← Cambiar plan
+      </button>
 
-    {/* Selected plan summary */}
-    <div style={{
-      background: `linear-gradient(135deg, ${plan.bgGradient})`,
-      border: `1.5px solid ${plan.accentColor}33`,
-      borderRadius: 14, padding: '20px 24px', marginBottom: 24,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: plan.accentColor, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>
-            Plan {plan.label}
+      {/* Selected plan summary */}
+      <div style={{
+        background: `linear-gradient(135deg, ${plan.bgGradient})`,
+        border: `1.5px solid ${plan.accentColor}33`,
+        borderRadius: 14, padding: '20px 24px', marginBottom: 24,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: plan.accentColor, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>
+              Plan {plan.label}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0e0749' }}>
+              {session
+                ? `$${(session.price_cop ?? Math.round(session.amount_in_cents / 100)).toLocaleString('es-CO')}`
+                : `$${(plan.priceNum + extraConns * plan.extraPrice).toLocaleString('es-CO')}`
+              }<span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(14,7,73,0.45)' }}> COP/mes</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.5)', marginTop: 4 }}>
+              {totalConns} cuenta{totalConns !== 1 ? 's' : ''} de WhatsApp · {plan.description}
+            </div>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0e0749' }}>
-            {plan.price}<span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(14,7,73,0.45)' }}> COP/mes</span>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: plan.accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, color: 'white', fontWeight: 800,
+          }}>
+            {plan.label[0]}
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.5)', marginTop: 4 }}>{plan.description}</div>
-        </div>
-        <div style={{
-          width: 52, height: 52, borderRadius: '50%',
-          background: plan.accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 20, color: 'white', fontWeight: 800,
-        }}>
-          {plan.label[0]}
         </div>
       </div>
-    </div>
 
-    {/* Key features recap */}
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
-      {plan.features.filter(f => f.active).slice(0, 4).map((f, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0e0749' }}>
-          <CheckIcon color={plan.accentColor} />
-          {f.text}
+      {/* Key features recap */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        {plan.features.filter(f => f.active).slice(0, 4).map((f, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#0e0749' }}>
+            <CheckIcon color={plan.accentColor} />
+            {f.text}
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#dc2626', fontSize: 13, borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+          {error}
         </div>
-      ))}
-    </div>
+      )}
 
-    {error && (
-      <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#dc2626', fontSize: 13, borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
-        {error}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(14,7,73,0.45)', fontSize: 14 }}>
+          <div style={{ width: 28, height: 28, border: '3px solid #ededed', borderTopColor: plan.accentColor, borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 10px' }} />
+          Preparando tu pago…
+        </div>
+      )}
+
+      {session && !loading && <WompiButton session={session} plan={plan} />}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, color: 'rgba(14,7,73,0.4)', fontSize: 12 }}>
+        <LockIcon />
+        <span>Pago 100% seguro con</span>
+        <span style={{ fontWeight: 700, color: '#00b5e2', fontSize: 13 }}>Wompi</span>
+        <span>· Cancela cuando quieras</span>
       </div>
-    )}
-
-    {/* Wompi button */}
-    {loading && (
-      <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(14,7,73,0.45)', fontSize: 14 }}>
-        <div style={{ width: 28, height: 28, border: '3px solid #ededed', borderTopColor: plan.accentColor, borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 10px' }} />
-        Preparando tu pago…
-      </div>
-    )}
-
-    {session && !loading && <WompiButton session={session} plan={plan} />}
-
-    {/* Security badge */}
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, color: 'rgba(14,7,73,0.4)', fontSize: 12 }}>
-      <LockIcon />
-      <span>Pago 100% seguro con</span>
-      <span style={{ fontWeight: 700, color: '#00b5e2', fontSize: 13 }}>Wompi</span>
-      <span>· Cancela cuando quieras</span>
     </div>
-  </div>
-);
+  );
+};
 
 /* ─── Trial code redemption ──────────────────────────────────────────── */
 
@@ -535,11 +538,12 @@ const TrialCodeBox = ({ api, onRedeemed, compact }) => {
 
 /* ─── Main modal ─────────────────────────────────────────────────────── */
 
-const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
+const PlanSelectionModal = ({ onClose, onTrialRedeemed, stepBadge }) => {
   const api = useApiClient();
   const compact = useCompactMode();
   const [step, setStep] = useState('select'); // 'select' | 'checkout'
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [extraConns, setExtraConns] = useState(0);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -555,7 +559,7 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
     setStep('checkout');
     try {
       const data = await api.post('/api/v1/billing/payment-session', {
-        body: { plan: selectedPlan.key },
+        body: { plan: selectedPlan.key, extra_connections: extraConns },
       });
       setSession(data);
     } catch (err) {
@@ -568,6 +572,7 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
   const handleBack = () => {
     setStep('select');
     setSession(null);
+    setExtraConns(0);
     setError('');
   };
 
@@ -629,7 +634,13 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
           <div style={{ padding: compact ? '16px 28px 0' : '28px 36px 0', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: step === 'select' ? 0 : 20 }}>
               <DeepLookLogo size="sm" dark />
-              {onClose && (
+              {stepBadge
+                ? (
+                  <span style={{ fontSize: 12, color: 'rgba(14,7,73,0.4)', background: '#f4f3ff', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                    {stepBadge}
+                  </span>
+                )
+                : onClose && (
                 <button
                   onClick={onClose}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'rgba(14,7,73,0.4)', borderRadius: 8 }}
@@ -657,8 +668,10 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
                   </h2>
                   {!compact && (
                     <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', lineHeight: 1.6, maxWidth: 480, margin: '0 auto' }}>
-                      Todos los planes incluyen análisis IA completo y reporte PDF descargable.<br />
-                      Cancela cuando quieras, sin compromisos.
+                      {stepBadge
+                        ? <>Cada plan incluye conexiones de WhatsApp Business.<br />Agrega más si gestionas varios números.</>
+                        : <>Todos los planes incluyen análisis IA completo y reporte PDF descargable.<br />Cancela cuando quieras, sin compromisos.</>
+                      }
                     </p>
                   )}
                 </div>
@@ -679,6 +692,44 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
 
               {/* Sticky footer — always visible regardless of screen height */}
               <div style={{ flexShrink: 0, padding: compact ? '10px 28px 14px' : '16px 36px 24px', borderTop: '1px solid #f3f4f6' }}>
+
+                {/* Extra connections stepper — shown when a plan is selected */}
+                {selectedPlan && (
+                  <div style={{
+                    background: '#f8f7ff', border: '1px solid rgba(79,70,229,0.15)',
+                    borderRadius: 14, padding: compact ? '10px 14px' : '14px 18px',
+                    marginBottom: compact ? 10 : 14,
+                    display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ fontSize: compact ? 12 : 13, fontWeight: 700, color: '#0e0749', marginBottom: 2 }}>
+                        Cuentas adicionales
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(14,7,73,0.5)' }}>
+                        +${selectedPlan.extraPrice.toLocaleString('es-CO')} COP/mes c/u
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                      <button
+                        onClick={() => setExtraConns(c => Math.max(0, c - 1))}
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1.5px solid #ddd6fe', background: 'white', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: selectedPlan.accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f4f3ff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
+                      >−</button>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: '#0e0749', minWidth: 22, textAlign: 'center' }}>{extraConns}</span>
+                      <button
+                        onClick={() => setExtraConns(c => c + 1)}
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1.5px solid #ddd6fe', background: 'white', cursor: 'pointer', fontSize: 16, fontWeight: 700, color: selectedPlan.accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f4f3ff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}
+                      >+</button>
+                    </div>
+                    <div style={{ fontSize: compact ? 13 : 14, fontWeight: 800, color: selectedPlan.accentColor, flexShrink: 0 }}>
+                      ${(selectedPlan.priceNum + extraConns * selectedPlan.extraPrice).toLocaleString('es-CO')} COP/mes
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ marginBottom: compact ? 10 : 16 }}>
                   <TrialCodeBox
                     api={api}
@@ -707,7 +758,12 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
                       minWidth: compact ? 180 : 200,
                     }}
                   >
-                    {selectedPlan ? `Continuar con ${selectedPlan.label} →` : 'Selecciona un plan'}
+                    {!selectedPlan
+                      ? 'Selecciona un plan'
+                      : extraConns > 0
+                        ? `Continuar — $${(selectedPlan.priceNum + extraConns * selectedPlan.extraPrice).toLocaleString('es-CO')} COP →`
+                        : `Continuar con ${selectedPlan.label} →`
+                    }
                   </button>
                 </div>
 
@@ -734,6 +790,7 @@ const PlanSelectionModal = ({ onClose, onTrialRedeemed }) => {
                 onBack={handleBack}
                 loading={loading}
                 error={error}
+                extraConns={extraConns}
               />
             </div>
           )}

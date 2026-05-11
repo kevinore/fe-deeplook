@@ -166,7 +166,7 @@ const DeleteModal = ({ onConfirm, onCancel, loading, error }) => {
   );
 };
 
-const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, quota, onShowPlanModal }) => {
+const DashSettings = ({ client, onClientUpdate, connections = [], onConnectionsChange, quota, onShowPlanModal }) => {
   const { user } = useUser();
   const { signOut } = useClerk();
   const api = useApiClient();
@@ -278,35 +278,51 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
   const email = user?.primaryEmailAddress?.emailAddress ?? '';
   const planLabel = PLAN_LABELS[client?.plan] ?? client?.plan ?? 'Plan Gratis';
 
-  const [unlinkLoading, setUnlinkLoading] = useState(false);
+  const [unlinkingId, setUnlinkingId] = useState(null); // connection id being unlinked
+  const [unlinkAllLoading, setUnlinkAllLoading] = useState(false);
   const [unlinkMsg, setUnlinkMsg] = useState(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  const handleUnlink = async () => {
-    if (!connection?.id) return;
-    setUnlinkLoading(true);
+  const handleUnlinkOne = async (connectionId) => {
+    setUnlinkingId(connectionId);
     setUnlinkMsg(null);
     try {
-      await api.delete(`/api/v1/whatsapp/connections/${connection.id}`);
-      onConnectionUpdate?.(null);
-      setUnlinkMsg({ ok: true, text: 'WhatsApp desvinculado correctamente.' });
+      await api.delete(`/api/v1/whatsapp/connections/${connectionId}`);
+      onConnectionsChange?.(connections.filter(c => c.id !== connectionId));
+      setUnlinkMsg({ ok: true, text: 'Cuenta desvinculada correctamente.' });
     } catch (e) {
       setUnlinkMsg({ ok: false, text: e.message || 'Error al desvincular.' });
     } finally {
-      setUnlinkLoading(false);
+      setUnlinkingId(null);
     }
+  };
+
+  const handleUnlinkAll = async () => {
+    setUnlinkAllLoading(true);
+    setUnlinkMsg(null);
+    let failed = 0;
+    for (const conn of connections) {
+      try { await api.delete(`/api/v1/whatsapp/connections/${conn.id}`); }
+      catch { failed++; }
+    }
+    onConnectionsChange?.([]);
+    setUnlinkMsg(failed === 0
+      ? { ok: true, text: 'Todas las cuentas desvinculadas.' }
+      : { ok: false, text: `${failed} cuenta(s) no pudieron desvincularse.` }
+    );
+    setUnlinkAllLoading(false);
   };
 
   const handleDeleteAccount = async () => {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      // Unlink WhatsApp first if connected (best-effort — don't block deletion on failure)
-      if (connection?.id) {
-        await api.delete(`/api/v1/whatsapp/connections/${connection.id}`).catch(() => {});
+      // Unlink all connections first (best-effort)
+      for (const conn of connections) {
+        await api.delete(`/api/v1/whatsapp/connections/${conn.id}`).catch(() => {});
       }
       // Delete the Clerk user account — this invalidates the session immediately
       await user.delete();
@@ -407,64 +423,87 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
       )}
 
       {tab === 'WhatsApp' && (
-        <div style={{ maxWidth: 560 }}>
-          {connection === undefined && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'rgba(14,7,73,0.45)', fontSize: 14 }}>
-              <div style={{ width: 20, height: 20, border: '2px solid #ededed', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-              Cargando estado de conexión…
-            </div>
-          )}
-          {connection === null && (
+        <div style={{ maxWidth: 600 }}>
+          {connections.length === 0 ? (
             <div style={{ background: '#f4f3ff', border: '1px solid rgba(79,70,229,0.1)', borderRadius: 14, padding: '28px 32px', textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#0e0749', marginBottom: 8 }}>Sin conexión de WhatsApp</div>
-              <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', marginBottom: 0 }}>Ve a <strong>Conectar WhatsApp</strong> en el menú lateral para vincular tu número.</p>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#0e0749', marginBottom: 8 }}>Sin cuentas de WhatsApp</div>
+              <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', margin: 0 }}>Ve a <strong>Conectar WhatsApp</strong> en el menú lateral para vincular una cuenta.</p>
             </div>
-          )}
-          {connection && (
+          ) : (
             <>
-              <div style={{ background: 'white', border: '1px solid #ededed', borderRadius: 14, padding: '22px 26px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0e0749' }}>Estado de la conexión</div>
-                  <div style={{
-                    background: ['WORKING', 'STOPPED'].includes(connection.status) ? '#dcfce7' : '#fee2e2',
-                    color: ['WORKING', 'STOPPED'].includes(connection.status) ? '#166534' : '#991b1b',
-                    fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 999,
-                  }}>
-                    {['WORKING', 'STOPPED'].includes(connection.status) ? 'Activo' : connection.status}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 4 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Número</div>
-                    <div style={{ fontSize: 15, color: '#0e0749', fontWeight: 500 }}>{connection.phone_number || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Nombre</div>
-                    <div style={{ fontSize: 15, color: '#0e0749', fontWeight: 500 }}>{connection.push_name || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Último sync</div>
-                    <div style={{ fontSize: 14, color: '#0e0749' }}>
-                      {connection.last_sync_at ? new Date(connection.last_sync_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nunca'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Frecuencia</div>
-                    <div style={{ fontSize: 14, color: '#0e0749', textTransform: 'capitalize' }}>{connection.sync_frequency || '—'}</div>
-                  </div>
-                </div>
+              <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 16 }}>
+                {connections.length} cuenta{connections.length !== 1 ? 's' : ''} conectada{connections.length !== 1 ? 's' : ''}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0e0749', marginBottom: 8 }}>Desvincular WhatsApp</div>
-              <p style={{ fontSize: 14, color: 'rgba(14,7,73,0.55)', marginBottom: 16 }}>
-                Esto desconectará tu cuenta. Los reportes ya generados seguirán disponibles.
-              </p>
-              <button
-                onClick={handleUnlink}
-                disabled={unlinkLoading}
-                className="btn-ghost"
-                style={{ borderColor: '#ef4444', color: '#ef4444', padding: '10px 20px', fontSize: 14, opacity: unlinkLoading ? 0.7 : 1, cursor: unlinkLoading ? 'default' : 'pointer' }}>
-                {unlinkLoading ? 'Desvinculando…' : 'Desvincular WhatsApp'}
-              </button>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {connections.map(conn => {
+                  const isActive = ['WORKING', 'STOPPED'].includes(conn.status);
+                  const name = conn.display_name || conn.push_name || conn.phone_number || 'Cuenta';
+                  const initials = name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                  return (
+                    <div key={conn.id}
+                      style={{ background: '#fff', border: '1px solid #ededed', borderRadius: 14, padding: '18px 22px', display: 'flex', alignItems: 'center', gap: 14, transition: 'box-shadow 0.22s, border-color 0.22s, transform 0.22s' }}
+                      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(239,68,68,0.13)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.32)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.borderColor = '#ededed'; e.currentTarget.style.transform = ''; }}
+                    >
+                      {/* Avatar */}
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#4f46e5,#7c72f5)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{initials}</span>
+                      </div>
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#0e0749', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {name}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          {conn.phone_number && (
+                            <span style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontFamily: '"JetBrains Mono",monospace' }}>+{conn.phone_number}</span>
+                          )}
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: isActive ? '#dcfce7' : '#fee2e2', color: isActive ? '#166534' : '#991b1b' }}>
+                            {isActive ? 'Activo' : conn.status}
+                          </span>
+                          {conn.last_sync_at && (
+                            <span style={{ fontSize: 11, color: 'rgba(14,7,73,0.4)' }}>
+                              Sync: {new Date(conn.last_sync_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Unlink button */}
+                      <button
+                        onClick={() => handleUnlinkOne(conn.id)}
+                        disabled={unlinkingId === conn.id || unlinkAllLoading}
+                        style={{ padding: '7px 14px', background: 'none', border: '1.5px solid #ef4444', borderRadius: 8, color: '#ef4444', fontSize: 13, fontWeight: 600, cursor: unlinkingId === conn.id ? 'default' : 'pointer', opacity: unlinkingId === conn.id ? 0.6 : 1, whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s' }}
+                        onMouseEnter={e => { if (unlinkingId !== conn.id) { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(239,68,68,0.35)'; e.currentTarget.style.transform = 'scale(1.03)'; } }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}
+                      >
+                        {unlinkingId === conn.id ? 'Desvinculando…' : 'Desvincular'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Unlink all */}
+              {connections.length > 1 && (
+                <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 20, marginBottom: 8 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0e0749', marginBottom: 6 }}>Desvincular todas las cuentas</div>
+                  <p style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)', marginBottom: 14, lineHeight: 1.55 }}>
+                    Esto cerrará la sesión de todas las cuentas de WhatsApp. Los reportes ya generados seguirán disponibles.
+                  </p>
+                  <button
+                    onClick={handleUnlinkAll}
+                    disabled={unlinkAllLoading || !!unlinkingId}
+                    className="btn-ghost-danger"
+                    style={{ padding: '10px 20px', fontSize: 14, opacity: unlinkAllLoading ? 0.7 : 1, cursor: unlinkAllLoading ? 'default' : 'pointer' }}
+                  >
+                    {unlinkAllLoading ? 'Desvinculando…' : `Desvincular todas (${connections.length})`}
+                  </button>
+                </div>
+              )}
+
               <FeedbackMsg msg={unlinkMsg} />
             </>
           )}
@@ -474,6 +513,8 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
       {tab === 'Plan y facturación' && (() => {
         const renewalDate = formatRenewal(quota?.billing_period_end);
         const planPrice = PLAN_PRICES_COP[client?.plan];
+        const connCount = quota?.connection_count ?? 0;
+        const monthlyTotal = quota?.monthly_total_cop ?? (connCount > 0 && planPrice ? connCount * planPrice : planPrice);
         const isActive = quota?.subscription_status === 'active';
         return (
           <div>
@@ -488,9 +529,11 @@ const DashSettings = ({ client, onClientUpdate, connection, onConnectionUpdate, 
                 </div>
                 <div style={{ fontSize: 26, fontWeight: 700, color: 'white', marginBottom: 4 }}>{planLabel}</div>
                 <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-                  {renewalDate
-                    ? `Renovación el ${renewalDate}${planPrice ? ` · $${planPrice.toLocaleString('es-CO')} COP/mes` : ''}`
-                    : 'Sin suscripción activa'}
+                  {renewalDate && monthlyTotal
+                    ? `Renovación el ${renewalDate} · $${monthlyTotal.toLocaleString('es-CO')} COP/mes${connCount > 1 ? ` (${connCount} cuentas × $${planPrice?.toLocaleString('es-CO')})` : ''}`
+                    : renewalDate
+                      ? `Renovación el ${renewalDate}`
+                      : 'Sin suscripción activa'}
                 </div>
               </div>
               <button

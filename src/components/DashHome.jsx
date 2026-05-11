@@ -497,8 +497,15 @@ const ReportRow = ({ job, onDownload, downloading, isLast }) => (
     </div>
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: 15, fontWeight: 600, color: '#0e0749', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatJobName(job)}</div>
-      <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)' }}>
-        {formatDate(job.created_at)} · {job.total_conversations} conversaciones
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+        {job.connection_name && (
+          <span style={{ fontSize: 11, background: '#f4f3ff', color: '#4f46e5', borderRadius: 5, padding: '1px 7px', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase', flexShrink: 0 }}>
+            {job.connection_name}
+          </span>
+        )}
+        <span style={{ fontSize: 13, color: 'rgba(14,7,73,0.5)' }}>
+          {formatDate(job.created_at)} · {job.total_conversations} conversaciones
+        </span>
       </div>
     </div>
     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -521,21 +528,50 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
   const { user } = useUser();
   const api = useApiClient();
   const [downloadingId, setDownloadingId] = useState(null);
+  const [accountFilter, setAccountFilter] = useState('Todas');
+  const [accountResults, setAccountResults] = useState(null);
+  const [accountResultsLoading, setAccountResultsLoading] = useState(false);
 
   const completedJobs = (jobs ?? [])
     .filter(j => j.status === 'completed')
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const totalConversations = completedJobs.reduce((s, j) => s + (j.total_conversations || 0), 0);
-  const recentJobs = completedJobs.slice(0, 3);
+  const accountNames = [...new Set(completedJobs.map(j => j.connection_name).filter(Boolean))].sort();
+  const hasMultiAccount = accountNames.length > 1;
 
-  // Use overall_health_score from the backend — no more averaging quality_score
-  const healthScore = latestResults?.overall_health_score != null
-    ? Math.round(latestResults.overall_health_score)
+  // Jobs scoped to the selected account
+  const filteredJobs = hasMultiAccount && accountFilter !== 'Todas'
+    ? completedJobs.filter(j => j.connection_name === accountFilter)
+    : completedJobs;
+
+  const recentJobs = filteredJobs.slice(0, 3);
+
+  // When account filter changes, fetch health score for that account's latest job
+  useEffect(() => {
+    if (accountFilter === 'Todas' || !hasMultiAccount) { setAccountResults(null); return; }
+    const top = filteredJobs[0];
+    if (!top) { setAccountResults(null); return; }
+    if (latestResults && String(latestResults.job_id) === String(top.job_id)) {
+      setAccountResults(latestResults); return;
+    }
+    setAccountResultsLoading(true);
+    api.get(`/api/v1/jobs/${top.job_id}/results`)
+      .then(r => setAccountResults(r))
+      .catch(() => setAccountResults(null))
+      .finally(() => setAccountResultsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountFilter, filteredJobs[0]?.job_id]);
+
+  const displayResults = (hasMultiAccount && accountFilter !== 'Todas') ? accountResults : latestResults;
+
+  const healthScore = displayResults?.overall_health_score != null
+    ? Math.round(displayResults.overall_health_score)
     : null;
 
-  const convsAnim   = useCounter(totalConversations);
-  const reportsAnim = useCounter(completedJobs.length);
+  // Stats scoped to filtered account
+  const filteredConversations = filteredJobs.reduce((s, j) => s + (j.total_conversations || 0), 0);
+  const convsAnim   = useCounter(filteredConversations);
+  const reportsAnim = useCounter(filteredJobs.length);
 
   // Show skeleton until both jobs list and latest results have arrived
   const loading = jobs === null || latestResults === undefined;
@@ -553,7 +589,11 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `reporte-deeplook-${String(jobId).slice(0, 8)}.pdf`;
+      const job = completedJobs.find(j => j.job_id === jobId);
+      const nameSlug = job?.connection_name
+        ? '-' + job.connection_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        : '';
+      a.download = `reporte-deeplook${nameSlug}-${String(jobId).slice(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -576,6 +616,22 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
         </p>
       </div>
 
+      {/* Account filter — only when multi-account */}
+      {hasMultiAccount && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, whiteSpace: 'nowrap' }}>Ver cuenta:</span>
+          {['Todas', ...accountNames].map(a => (
+            <button key={a} onClick={() => setAccountFilter(a)}
+              style={{ padding: '6px 16px', borderRadius: 999, border: '1.5px solid', borderColor: accountFilter === a ? '#4f46e5' : 'rgba(79,70,229,0.15)', background: accountFilter === a ? '#4f46e5' : '#f8f7ff', color: accountFilter === a ? '#fff' : '#4f46e5', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 180ms', whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+              {a}
+            </button>
+          ))}
+          {accountResultsLoading && (
+            <div style={{ width: 16, height: 16, border: '2px solid rgba(79,70,229,0.15)', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          )}
+        </div>
+      )}
+
       {/* 4-card equal stats grid */}
       <div style={{ display: 'grid', gap: 14, marginBottom: 24 }} className="dash-home-stats">
         <style>{`
@@ -586,8 +642,8 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
 
         <HealthStatCard
           score={healthScore}
-          latestJob={completedJobs[0] ?? null}
-          loading={loading}
+          latestJob={filteredJobs[0] ?? null}
+          loading={loading || accountResultsLoading}
         />
 
         <EqualStatCard
@@ -595,7 +651,7 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
           accent="linear-gradient(90deg,#4f46e5,#a78bfa)"
           label="Conversaciones analizadas"
           value={convsAnim.toLocaleString('es-CO')}
-          sub={`En ${completedJobs.length} reporte${completedJobs.length !== 1 ? 's' : ''}`}
+          sub={`En ${filteredJobs.length} reporte${filteredJobs.length !== 1 ? 's' : ''}`}
           loading={loading}
         />
 
@@ -604,7 +660,7 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
           accent="linear-gradient(90deg,#a78bfa,#c4b5fd)"
           label="Reportes completados"
           value={reportsAnim.toLocaleString('es-CO')}
-          sub={completedJobs.length === 0 ? 'Sin reportes aún' : `${completedJobs.length} generado${completedJobs.length !== 1 ? 's' : ''}`}
+          sub={filteredJobs.length === 0 ? 'Sin reportes aún' : `${filteredJobs.length} generado${filteredJobs.length !== 1 ? 's' : ''}`}
           loading={loading}
         />
 
@@ -649,10 +705,20 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
 
         {/* Recent reports */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: hasMultiAccount ? 10 : 16 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0e0749' }}>Reportes recientes</h2>
             <button onClick={() => onNavigate('reports')} style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Ver todos →</button>
           </div>
+          {hasMultiAccount && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {['Todas', ...accountNames].map(a => (
+                <button key={a} onClick={() => setAccountFilter(a)}
+                  style={{ padding: '4px 12px', borderRadius: 999, border: '1.5px solid', borderColor: accountFilter === a ? '#4f46e5' : 'rgba(79,70,229,0.15)', background: accountFilter === a ? '#4f46e5' : '#f8f7ff', color: accountFilter === a ? 'white' : '#4f46e5', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.02em', textTransform: 'uppercase', transition: 'all 180ms' }}>
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
 
           {loading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -8,6 +8,7 @@ import LegalPage from './components/LegalPage';
 import PaymentResult from './components/PaymentResult';
 import SSOCallback from './components/SSOCallback';
 import OAuthInit from './components/OAuthInit';
+import QRSharePage from './components/QRSharePage';
 
 const DASH_PAGES = ['dashboard', 'connect', 'upload', 'reports', 'trends', 'settings', 'help'];
 const AUTH_PAGES = ['login', 'signup'];
@@ -49,10 +50,16 @@ const PAGE_TO_URL = {
   terms:          '/terms',
 };
 
+const QR_SHARE_RE = /^\/qr\/([0-9a-f-]{36})$/i;
+
 const App = () => {
   const routerNavigate = useNavigate();
   const { pathname } = useLocation();
   const { isSignedIn, isLoaded } = useAuth();
+
+  // Public QR share page — render before any auth checks
+  const qrMatch = pathname.match(QR_SHARE_RE);
+  if (qrMatch) return <QRSharePage token={qrMatch[1]} />;
 
   const page = URL_TO_PAGE[pathname] ?? 'landing';
   const navigate = (target) => routerNavigate(PAGE_TO_URL[target] ?? '/');

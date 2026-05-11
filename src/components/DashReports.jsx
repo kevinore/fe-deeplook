@@ -106,6 +106,13 @@ const ReportCard = ({ job, onDownload, downloading }) => {
       </div>
 
       <div style={{ fontSize: 15, fontWeight: 700, color: '#0e0749', marginBottom: 4 }}>{name}</div>
+      {job.connection_name && (
+        <div style={{ marginBottom: 4 }}>
+          <span style={{ fontSize: 11, background: '#f4f3ff', color: '#4f46e5', borderRadius: 6, padding: '2px 8px', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+            {job.connection_name}
+          </span>
+        </div>
+      )}
       <div style={{ fontSize: 13, color: 'rgba(14,7,73,0.45)', marginBottom: 10 }}>{date}</div>
 
       {job.total_conversations > 0 && !isActive && (
@@ -187,6 +194,7 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal })
   const api = useApiClient();
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [accountFilter, setAccountFilter] = useState('Todas');
   const [downloadingIds, setDownloadingIds] = useState(new Set());
   const [error, setError] = useState(null);
   const apiRef = useRef(api);
@@ -225,7 +233,11 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal })
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `reporte-deeplook-${String(jobId).slice(0, 8)}.pdf`;
+      const job = (jobs ?? []).find(j => j.job_id === jobId);
+      const nameSlug = job?.connection_name
+        ? '-' + job.connection_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        : '';
+      a.download = `reporte-deeplook${nameSlug}-${String(jobId).slice(0, 8)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -237,8 +249,13 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal })
     }
   };
 
+  // Unique account names across all jobs (only when there are multiple)
+  const accountNames = [...new Set((jobs ?? []).map(j => j.connection_name).filter(Boolean))].sort();
+  const hasMultiAccount = accountNames.length > 1;
+
   const filtered = applyFilter(jobs ?? [], filter)
     .filter(j => formatJobName(j).toLowerCase().includes(search.toLowerCase()))
+    .filter(j => accountFilter === 'Todas' || j.connection_name === accountFilter)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const totalCompleted = (jobs ?? []).filter(j => j.status === 'completed').length;
@@ -292,19 +309,35 @@ const DashReports = ({ onNavigate, jobs, onJobsUpdate, quota, onShowPlanModal })
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {FILTERS.map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ padding: '8px 16px', borderRadius: 999, border: '1.5px solid', borderColor: filter === f ? '#4f46e5' : '#ededed', background: filter === f ? '#4f46e5' : 'white', color: filter === f ? 'white' : 'rgba(14,7,73,0.65)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', transition: 'all 200ms', whiteSpace: 'nowrap' }}>{f}</button>
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+        {/* Row 1: period filters + search */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {FILTERS.map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                style={{ padding: '7px 15px', borderRadius: 999, border: '1.5px solid', borderColor: filter === f ? '#4f46e5' : '#ededed', background: filter === f ? '#4f46e5' : 'white', color: filter === f ? 'white' : 'rgba(14,7,73,0.65)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', transition: 'all 200ms', whiteSpace: 'nowrap' }}>{f}</button>
+            ))}
+          </div>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <Icon name="search" size={15} color="#a78bfa" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar reporte…"
+              style={{ paddingLeft: 36, paddingRight: 16, height: 38, border: '1.5px solid #ededed', borderRadius: 8, fontSize: 14, fontFamily: 'DM Sans,sans-serif', outline: 'none', width: 200, color: '#0e0749', background: 'white', boxSizing: 'border-box' }}
+              onFocus={e => e.target.style.borderColor = '#4f46e5'} onBlur={e => e.target.style.borderColor = '#ededed'} />
+          </div>
         </div>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <Icon name="search" size={15} color="#a78bfa" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar reporte…"
-            style={{ paddingLeft: 36, paddingRight: 16, height: 40, border: '1.5px solid #ededed', borderRadius: 8, fontSize: 14, fontFamily: 'DM Sans,sans-serif', outline: 'none', width: 220, color: '#0e0749', background: 'white', boxSizing: 'border-box' }}
-            onFocus={e => e.target.style.borderColor = '#4f46e5'} onBlur={e => e.target.style.borderColor = '#ededed'} />
-        </div>
+
+        {/* Row 2: account filter — only shown when there are multiple accounts */}
+        {hasMultiAccount && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'rgba(14,7,73,0.45)', fontWeight: 600, whiteSpace: 'nowrap' }}>Cuenta:</span>
+            {['Todas', ...accountNames].map(a => (
+              <button key={a} onClick={() => setAccountFilter(a)}
+                style={{ padding: '5px 13px', borderRadius: 999, border: '1.5px solid', borderColor: accountFilter === a ? '#4f46e5' : 'rgba(79,70,229,0.15)', background: accountFilter === a ? '#4f46e5' : '#f8f7ff', color: accountFilter === a ? 'white' : '#4f46e5', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', transition: 'all 200ms', whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+                {a}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {jobs === null ? (
