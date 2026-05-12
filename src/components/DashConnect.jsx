@@ -72,8 +72,18 @@ const QRDisplay = ({ connectionId, api, onConnected }) => {
   const fetchQr = useCallback(async () => {
     try {
       const data = await api.get(`/api/v1/whatsapp/connections/${connectionId}/qr`);
-      if (data.qr_base64) { setQr(data.qr_base64.startsWith('data:') ? data.qr_base64 : `data:image/png;base64,${data.qr_base64}`); setSecondsLeft(20); }
-    } catch {}
+      if (data.qr_base64) {
+        setQr(data.qr_base64.startsWith('data:') ? data.qr_base64 : `data:image/png;base64,${data.qr_base64}`);
+        setSecondsLeft(20);
+      }
+    } catch (err) {
+      // 425 = session still starting (NOWEB Chromium loading) — silently retry in 3s
+      if (err.status === 425) {
+        setTimeout(fetchQr, 3000);
+      }
+      // 409 ALREADY_CONNECTED = scanned while we were waiting → status poll will catch it
+      // All other errors: just leave the spinner showing, next 20s interval will retry
+    }
   }, [connectionId]);
 
   useEffect(() => {
@@ -104,6 +114,180 @@ const QRDisplay = ({ connectionId, api, onConnected }) => {
         </div>
       )}
       <span style={{ fontSize: 11, color: 'rgba(14,7,73,0.4)', fontWeight: 500 }}>Se renueva en {secondsLeft}s</span>
+    </div>
+  );
+};
+
+// ── Phone-code authentication ──────────────────────────────────────────────
+
+const PhoneCodeDisplay = ({ connectionId, api, onConnected, onSwitchToQr }) => {
+  // step: 'phone'       → user enters their WhatsApp number
+  //       'show'        → we display the pairing code for the user to enter in WhatsApp Business
+  //       'unavailable' → WAHA engine incompatible with phone-code method
+  const [step, setStep] = useState('phone');
+  const [phone, setPhone] = useState('57');
+  const [pairingCode, setPairingCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const refs = useRef({});
+
+  // Poll status exactly like QRDisplay — fires auto-sync on WORKING transition.
+  // Starts polling immediately so we catch the WORKING state the moment the
+  // user enters the pairing code in their WhatsApp Business app.
+  useEffect(() => {
+    refs.current.st = setInterval(async () => {
+      try {
+        const s = await api.get(`/api/v1/whatsapp/connections/${connectionId}/status`);
+        if (s.status === 'WORKING' || s.status === 'CHECKING_ACCOUNT') {
+          Object.values(refs.current).forEach(clearInterval);
+          onConnected(s);
+        }
+      } catch {}
+    }, 2_000);
+    return () => Object.values(refs.current).forEach(clearInterval);
+  }, [connectionId]);
+
+  const requestCode = async () => {
+    const digits = phone.replace(/[^\d]/g, '');
+    if (digits.length < 7) { setError('Ingresa un número válido con código de país.'); return; }
+    setLoading(true); setError('');
+    try {
+      const data = await api.post(
+        `/api/v1/whatsapp/connections/${connectionId}/auth/request-code`,
+        { body: { phone_number: digits } },
+      );
+      setPairingCode(data.pairing_code);
+      setStep('show');
+    } catch (e) {
+      // 503 PHONE_CODE_UNAVAILABLE = WAHA WEBJS engine incompatible with current WhatsApp Web
+      if (e.status === 503 || e.data?.code === 'PHONE_CODE_UNAVAILABLE') {
+        setStep('unavailable');
+      } else {
+        setError(e.data?.message || e.message || 'No se pudo obtener el código. Intenta de nuevo.');
+      }
+    }
+    setLoading(false);
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', border: '1.5px solid rgba(79,70,229,0.2)',
+    borderRadius: 10, fontSize: 15, outline: 'none', boxSizing: 'border-box',
+    fontFamily: '"DM Sans",sans-serif', background: '#fff',
+  };
+
+  return (
+    <div style={{ width: '100%' }}>
+
+      {step === 'unavailable' && (
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>⚠️</div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: '#0e0749', margin: '0 0 8px' }}>
+            Código de teléfono no disponible
+          </p>
+          <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.5)', margin: '0 0 16px', lineHeight: 1.55 }}>
+            Esta función requiere una versión actualizada de WAHA. Usa el código QR para vincular tu cuenta — funciona perfectamente.
+          </p>
+          <button
+            onClick={onSwitchToQr}
+            style={{ padding: '9px 24px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+          >
+            📷 Usar código QR
+          </button>
+        </div>
+      )}
+
+      {step === 'phone' && (
+        <>
+          <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.55)', margin: '0 0 10px', lineHeight: 1.5 }}>
+            Ingresa el número de WhatsApp Business que quieres vincular.
+          </p>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+            <input
+              value="+"
+              readOnly
+              style={{ ...inputStyle, width: 32, textAlign: 'center', color: 'rgba(14,7,73,0.4)', padding: '10px 6px', flexShrink: 0 }}
+            />
+            <input
+              autoFocus
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value.replace(/[^\d]/g, ''))}
+              onKeyDown={e => e.key === 'Enter' && requestCode()}
+              placeholder="573178881502"
+              style={{ ...inputStyle, flex: 1 }}
+              onFocus={e => { e.target.style.borderColor = '#4f46e5'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(79,70,229,0.2)'; }}
+            />
+          </div>
+          <p style={{ fontSize: 11, color: 'rgba(14,7,73,0.35)', margin: '0 0 8px' }}>
+            Código de país + número sin espacios. Ej: 573178881502
+          </p>
+          {error && (
+            <p style={{ fontSize: 12, color: '#dc2626', margin: '0 0 8px', background: '#fee2e2', borderRadius: 8, padding: '6px 10px' }}>{error}</p>
+          )}
+          <button
+            onClick={requestCode}
+            disabled={loading || phone.replace(/\D/g, '').length < 7}
+            style={{ width: '100%', padding: '10px 0', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: loading || phone.replace(/\D/g,'').length < 7 ? 0.6 : 1 }}
+          >
+            {loading ? 'Generando código…' : 'Obtener código de vinculación'}
+          </button>
+        </>
+      )}
+
+      {step === 'show' && (
+        <>
+          {/* The pairing code — big, easy to read and copy */}
+          <div style={{ background: '#fff', border: '2px solid #4f46e5', borderRadius: 14, padding: '18px 14px', marginBottom: 14, textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(14,7,73,0.45)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              Tu código de vinculación
+            </p>
+            <div style={{ fontSize: 30, fontWeight: 800, color: '#4f46e5', letterSpacing: '0.15em', fontFamily: '"JetBrains Mono",monospace', marginBottom: 8 }}>
+              {pairingCode}
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText(pairingCode)}
+              style={{ background: 'none', border: 'none', color: 'rgba(14,7,73,0.4)', fontSize: 11, cursor: 'pointer', padding: 0 }}
+            >
+              📋 Copiar
+            </button>
+          </div>
+
+          {/* Step-by-step instructions */}
+          <div style={{ background: '#f8f7ff', borderRadius: 11, padding: '12px 14px', marginBottom: 12 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#0e0749', margin: '0 0 8px' }}>
+              Ingresa el código en WhatsApp Business:
+            </p>
+            {[
+              'Abre WhatsApp Business en tu teléfono',
+              'Toca los tres puntos (⋮) → Dispositivos vinculados',
+              'Toca "Vincular dispositivo"',
+              'Toca "Usar número de teléfono" (debajo del QR)',
+              `Ingresa el código: ${pairingCode}`,
+            ].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 5 }}>
+                <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#4f46e5', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                  {i + 1}
+                </span>
+                <span style={{ fontSize: 12, color: '#0e0749', lineHeight: 1.45 }}>{step}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'rgba(14,7,73,0.4)' }}>
+            <Spinner size={12} color="#4f46e5" />
+            <span>Esperando que ingreses el código en WhatsApp…</span>
+          </div>
+
+          <button
+            onClick={() => { setStep('phone'); setPairingCode(''); setError(''); }}
+            style={{ width: '100%', padding: '8px 0', background: 'none', border: 'none', color: 'rgba(14,7,73,0.4)', fontSize: 12, cursor: 'pointer', marginTop: 10 }}
+          >
+            ← Usar otro número
+          </button>
+        </>
+      )}
+
     </div>
   );
 };
@@ -331,13 +515,18 @@ const NewConnectionModal = ({ api, onCreated, onClose }) => {
 
 // ── Connection Card ────────────────────────────────────────────────────────
 
-const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync }) => {
+const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync, quota, initialLoad = false }) => {
   const [showQr, setShowQr] = useState(false);
+  const [authMethod, setAuthMethod] = useState('qr');  // 'qr' | 'phone'
   const [showShare, setShowShare] = useState(false);
   const [showRename, setShowRename] = useState(false);
   const [showUnlink, setShowUnlink] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // justConnected: set when QR/code scan completes. Acts as bridge while
+  // _auto_sync_on_connect is waiting for WAHA store (up to 5 min). Cleared
+  // once backend reports an active job or a sync has completed.
+  const [justConnected, setJustConnected] = useState(false);
   const menuRef = useRef(null);
 
   const isConnected = conn.status === 'WORKING' || conn.status === 'STOPPED';
@@ -345,6 +534,22 @@ const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync }) => {
   const isBlocked   = conn.status === 'PERSONAL_ACCOUNT_BLOCKED';
   const isFailed    = conn.status === 'FAILED';
   const displayName = conn.display_name || conn.push_name || `Cuenta ${conn.phone_number || ''}`;
+
+  // Derived sync state — cleared once backend confirms the active job
+  const activelySyncing = justConnected || conn.active_job_status === 'pending' || conn.active_job_status === 'processing';
+
+  // Clear justConnected bridge once backend reports the job (or it has already completed)
+  useEffect(() => {
+    if (conn.active_job_status === 'pending' || conn.active_job_status === 'processing') {
+      setJustConnected(false);
+    }
+  }, [conn.active_job_status]);
+
+  // Per-connection quota — comes from the backend on every connections refresh.
+  // Falls back to the parent quota prop if backend hasn't populated it yet.
+  const quotaExhausted = conn.reports_remaining != null
+    ? conn.reports_remaining === 0
+    : (quota != null && quota.reports_remaining === 0);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -359,7 +564,11 @@ const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync }) => {
     setSyncing(false);
   };
 
-  const handleConnected = (s) => { setShowQr(false); onUpdated({ ...conn, status: s.status, phone_number: s.phone_number }); };
+  const handleConnected = (s) => {
+    setShowQr(false);
+    setJustConnected(true); // auto-sync fires immediately; bridge until backend reports the job
+    onUpdated({ ...conn, status: s.status, phone_number: s.phone_number });
+  };
 
   return (
     <>
@@ -422,23 +631,27 @@ const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync }) => {
             </div>
           )}
 
-          {/* QR panel */}
+          {/* Auth panel (QR or phone-code) */}
           {showQr && needsQr && (
-            <div style={{ background: '#f8f7ff', borderRadius: 12, padding: '18px', marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-              <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.55)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-                WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo
-              </p>
-              <QRDisplay connectionId={conn.id} api={api} onConnected={handleConnected} />
+            <div style={{ background: '#f8f7ff', borderRadius: 12, padding: '16px', marginBottom: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <p style={{ fontSize: 12, color: 'rgba(14,7,73,0.55)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+                  WhatsApp → Ajustes → Dispositivos vinculados → Vincular dispositivo
+                </p>
+                <QRDisplay connectionId={conn.id} api={api} onConnected={handleConnected} />
+              </div>
             </div>
           )}
         </div>
 
         {/* Action bar */}
         <div style={{ padding: '12px 20px 20px', display: 'flex', gap: 8 }}>
+
+          {/* QR / pairing buttons */}
           {needsQr && (
             <button onClick={() => setShowQr(s => !s)} className="btn-primary" style={{ flex: 1, padding: '9px 14px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Icon name="qr_code" size={14} color="#fff" />
-              {showQr ? 'Ocultar QR' : 'Ver código QR'}
+              {showQr ? 'Ocultar' : 'Vincular cuenta'}
             </button>
           )}
           {needsQr && (
@@ -447,12 +660,44 @@ const ConnectionCard = ({ conn, api, onUpdated, onUnlinked, onSync }) => {
               Compartir
             </button>
           )}
-          {isConnected && (
-            <button onClick={handleSync} disabled={syncing} style={{ flex: 1, padding: '9px 14px', fontSize: 13, background: '#f4f3ff', border: '1.5px solid rgba(79,70,229,0.18)', borderRadius: 10, cursor: syncing ? 'default' : 'pointer', fontWeight: 600, color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: syncing ? 0.7 : 1 }}>
-              {syncing ? <Spinner size={13} /> : <Icon name="zap" size={13} color="#4f46e5" />}
-              {syncing ? 'Generando…' : 'Generar reporte'}
-            </button>
-          )}
+
+          {/* Sync / report button — 4 states + loading guard */}
+          {isConnected && (() => {
+            // While the initial fetch is in flight, show a neutral spinner so
+            // the button never flashes "Generar reporte" before accurate state arrives.
+            if (initialLoad) {
+              return (
+                <div style={{ flex: 1, padding: '9px 14px', fontSize: 13, background: '#f4f3ff', border: '1.5px solid rgba(79,70,229,0.12)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'default' }}>
+                  <Spinner size={13} color="rgba(79,70,229,0.4)" />
+                </div>
+              );
+            }
+            // STATE 1 — active sync in progress (auto or manual): spinner, not clickable
+            if (activelySyncing || syncing) {
+              return (
+                <div style={{ flex: 1, padding: '9px 14px', fontSize: 13, background: '#f4f3ff', border: '1.5px solid rgba(79,70,229,0.12)', borderRadius: 10, fontWeight: 600, color: 'rgba(79,70,229,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: 'default', userSelect: 'none' }}>
+                  <Spinner size={13} color="#4f46e5" />
+                  {conn.active_job_status === 'processing' ? 'Generando reporte…' : 'Sincronizando…'}
+                </div>
+              );
+            }
+            // STATE 2 — quota exhausted: hide button entirely
+            if (quotaExhausted) {
+              return (
+                <div style={{ flex: 1, padding: '9px 14px', fontSize: 12, color: 'rgba(14,7,73,0.38)', textAlign: 'center', fontStyle: 'italic' }}>
+                  Sin reportes disponibles este período
+                </div>
+              );
+            }
+            // STATE 3 — ready to sync
+            return (
+              <button onClick={handleSync} style={{ flex: 1, padding: '9px 14px', fontSize: 13, background: '#f4f3ff', border: '1.5px solid rgba(79,70,229,0.18)', borderRadius: 10, cursor: 'pointer', fontWeight: 600, color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Icon name="zap" size={13} color="#4f46e5" />
+                Generar reporte
+              </button>
+            );
+          })()}
+
           {isFailed && (
             <button onClick={() => setShowQr(true)} className="btn-primary" style={{ flex: 1, padding: '9px 14px', fontSize: 13 }}>Reintentar</button>
           )}
@@ -622,18 +867,34 @@ const AddConnectionPaymentModal = ({ quota, api, onClose }) => {
 
 export default function DashConnect({ connections: initialConnections, onConnectionsChange, onNavigate, quota }) {
   const api = useApiClient();
+  // Use initialConnections only as the starting point. After mount, DashConnect
+  // manages its own state — we never sync from the parent again to avoid the
+  // "Generar reporte" flash caused by stale parent data overriding fresh backend data.
   const [connections, setConnections] = useState(initialConnections || []);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [toast, setToast] = useState('');
+  // True while the initial fresh fetch is in flight — hides action buttons to
+  // prevent flashing the wrong state before accurate data arrives.
+  const [initialLoad, setInitialLoad] = useState(true);
 
-  useEffect(() => { setConnections(initialConnections || []); }, [initialConnections]);
+  // Single source of truth: always fetch fresh on mount so active_job_status and
+  // reports_remaining reflect the real backend state, not the parent's stale cache.
+  useEffect(() => {
+    api.get('/api/v1/whatsapp/connections').then(fresh => {
+      setConnections(fresh);
+      onConnectionsChange?.(fresh);
+    }).catch(() => {}).finally(() => setInitialLoad(false));
+  }, []);
 
-  // Auto-refresh all connection statuses while any are in a transitional state
+  // Auto-refresh connections while any are transitional OR have an active sync job.
+  // This keeps active_job_status current so the button state is always accurate.
   const TRANSITIONAL = ['STARTING', 'SCAN_QR_CODE', 'CHECKING_ACCOUNT'];
   useEffect(() => {
-    const hasTransitional = connections.some(c => TRANSITIONAL.includes(c.status));
-    if (!hasTransitional) return;
+    const needsRefresh = connections.some(
+      c => TRANSITIONAL.includes(c.status) || c.active_job_status === 'pending' || c.active_job_status === 'processing'
+    );
+    if (!needsRefresh) return;
 
     const timer = setInterval(async () => {
       try {
@@ -770,7 +1031,7 @@ export default function DashConnect({ connections: initialConnections, onConnect
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
             {connections.map(conn => (
-              <ConnectionCard key={conn.id} conn={conn} api={api} onUpdated={updateConn} onUnlinked={removeConn} onSync={handleSync} />
+              <ConnectionCard key={conn.id} conn={conn} api={api} onUpdated={updateConn} onUnlinked={removeConn} onSync={handleSync} quota={quota} initialLoad={initialLoad} />
             ))}
           </div>
 

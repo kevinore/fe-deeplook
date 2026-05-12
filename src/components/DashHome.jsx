@@ -128,16 +128,15 @@ const MiniRing = ({ score, animated }) => {
 // ── 4 stat cards ──────────────────────────────────────────────────────────────
 
 const HealthStatCard = ({ score, latestJob, loading }) => {
-  const animated = useCounter(score ?? 0, 1400);
   const label = scoreLabel(score);
   const color = scoreColor(score);
   return (
     <CardShell accent={color}>
-      <CardHeader label="Puntaje de salud" iconSlot={<MiniRing score={score} animated={animated} />} />
+      <CardHeader label="Puntaje de salud" />
       {loading
         ? <SkeletonLine w={80} />
         : <BigNumber>
-            {score != null ? animated : '—'}
+            {score != null ? score : '—'}
             {score != null && <span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(14,7,73,0.3)', marginLeft: 4 }}>/100</span>}
           </BigNumber>
       }
@@ -570,8 +569,8 @@ const DashHome = ({ onNavigate, connection, jobs, latestResults, quota }) => {
 
   // Stats scoped to filtered account
   const filteredConversations = filteredJobs.reduce((s, j) => s + (j.total_conversations || 0), 0);
-  const convsAnim   = useCounter(filteredConversations);
-  const reportsAnim = useCounter(filteredJobs.length);
+  const convsAnim   = filteredConversations;
+  const reportsAnim = filteredJobs.length;
 
   // Show skeleton until both jobs list and latest results have arrived
   const loading = jobs === null || latestResults === undefined;
