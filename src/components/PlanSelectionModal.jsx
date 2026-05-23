@@ -333,8 +333,7 @@ const TrialCodeBox = ({ api, onRedeemed, compact }) => {
         body: { code: trimmed },
       });
       setSuccess(data);
-      // Give the user a beat to read the success state, then close the modal.
-      setTimeout(() => onRedeemed?.(data), 1600);
+      onRedeemed?.(data);
     } catch (err) {
       setError(err.message || 'No pudimos canjear ese código.');
     } finally {

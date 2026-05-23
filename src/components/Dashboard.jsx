@@ -403,6 +403,7 @@ const Dashboard = ({ page, onNavigate, onLanding }) => {
       {client === false && (
         <OnboardingModal onComplete={(newClient) => {
           setClient(newClient);
+          refreshQuota();
           // Right after onboarding, invite free users to pick a plan
           if (!newClient?.plan || newClient.plan === 'free') {
             setShowPlanModal(true);

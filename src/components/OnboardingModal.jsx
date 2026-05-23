@@ -154,7 +154,11 @@ const OnboardingModal = ({ onComplete }) => {
     return (
       <PlanSelectionModal
         onClose={() => onComplete(createdClient)}
-        onTrialRedeemed={() => onComplete(createdClient)}
+        onTrialRedeemed={() => {
+          api.get('/api/v1/clients')
+            .then((clients) => onComplete(clients[0] ?? createdClient))
+            .catch(() => onComplete(createdClient));
+        }}
         stepBadge="Paso 2 de 2"
       />
     );
